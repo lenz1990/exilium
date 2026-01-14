@@ -7,71 +7,26 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <div class="bg"></div>
+  <main class="card">
+    <h1>Login</h1>
 
-  <main class="wrap">
-    <header class="top">
-      <div class="brand">EXILIUM <span class="pill">Login</span></div>
-      <a class="btn ghost" href="/">Start</a>
-    </header>
+    <form id="form">
+      <label>Username</label>
+      <input id="username" autocomplete="username" />
 
-    <section class="card">
-      <h1>Login</h1>
+      <label>Passwort</label>
+      <input id="password" type="password" autocomplete="current-password" />
 
-      <div class="field">
-        <label>Username</label>
-        <input id="u" autocomplete="username" />
-      </div>
+      <button class="btn" type="submit">Einloggen</button>
+    </form>
 
-      <div class="field">
-        <label>Password</label>
-        <input id="p" type="password" autocomplete="current-password" />
-      </div>
+    <div id="msg" class="msg"></div>
 
-      <button id="btn" class="btn">Einloggen</button>
-
-      <div id="msg" class="msg"></div>
-      <p class="muted small">Falls du Admin noch nicht angelegt hast: <a href="/setup">Setup öffnen</a></p>
-    </section>
+    <p class="muted">
+      <a href="/">Start</a> · <a href="/setup">Setup</a>
+    </p>
   </main>
 
-  <script>
-    async function api(path, opts = {}) {
-      const res = await fetch(path, {
-        ...opts,
-        credentials: "include",
-        headers: { "content-type": "application/json", ...(opts.headers || {}) }
-      });
-      const text = await res.text();
-      let data = {};
-      try { data = text ? JSON.parse(text) : {}; } catch {}
-      return { res, data };
-    }
-
-    // Wenn bereits eingeloggt => direkt App
-    (async () => {
-      const { data } = await api("/api/me", { method: "GET" });
-      if (data && data.ok && data.user) location.href = "/app";
-    })();
-
-    const msg = document.getElementById("msg");
-    document.getElementById("btn").addEventListener("click", async () => {
-      msg.textContent = "";
-      const username = document.getElementById("u").value.trim();
-      const password = document.getElementById("p").value.trim();
-
-      const { res, data } = await api("/api/login", {
-        method: "POST",
-        body: JSON.stringify({ username, password })
-      });
-
-      if (res.ok && data.ok) {
-        location.href = "/app";
-      } else {
-        msg.textContent = (data && data.error) ? data.error : "Login fehlgeschlagen";
-        msg.className = "msg err";
-      }
-    });
-  </script>
+  <script type="module" src="/login.js"></script>
 </body>
 </html>
