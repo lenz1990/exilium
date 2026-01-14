@@ -7,38 +7,39 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <div class="container">
-    <div class="nav">
-      <div class="brand"><a href="/">EXILIUM</a> <span class="badge">Dashboard</span></div>
-      <div class="row">
-        <button class="danger" id="logout">Logout</button>
-      </div>
-    </div>
+  <div class="bg"></div>
 
-    <div class="grid">
+  <main class="wrap">
+    <header class="top">
+      <div class="brand">EXILIUM <span class="pill">Dashboard</span></div>
+      <button id="logout" class="btn danger">Logout</button>
+    </header>
+
+    <section class="grid">
       <div class="card">
         <h2>Willkommen</h2>
-        <p id="who">Lade…</p>
-        <div class="notice small">
-          Hier baust du jetzt eure Exilium-Inhalte rein.
-        </div>
+        <p class="muted" id="who">Lade…</p>
+        <div class="hint">Hier baust du jetzt eure Exilium-Inhalte rein.</div>
       </div>
 
-      <div class="card" id="adminCard" style="display:none">
+      <div class="card" id="adminBox" style="display:none;">
         <h2>Admin: User erstellen</h2>
 
-        <label>Neuer Username</label>
-        <input id="nu" />
-        <label>Neues Passwort (min. 10 Zeichen)</label>
-        <input id="np" type="password" />
+        <div class="field">
+          <label>Neuer Username</label>
+          <input id="nu" />
+        </div>
 
-        <div class="spacer"></div>
-        <button class="primary" id="createUser">User erstellen</button>
+        <div class="field">
+          <label>Neues Passwort (min. 10 Zeichen)</label>
+          <input id="np" type="password" />
+        </div>
 
-        <div id="msg" class="notice small" style="display:none"></div>
+        <button id="createUser" class="btn">User erstellen</button>
+        <div id="msg" class="msg"></div>
       </div>
-    </div>
-  </div>
+    </section>
+  </main>
 
   <script src="/app.js"></script>
 </body>
