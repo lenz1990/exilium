@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Setup – Exilium</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="nav">
+      <div class="brand"><a href="/">EXILIUM</a> <span class="badge">Setup</span></div>
+      <div class="row">
+        <a href="/login.html"><button class="primary">Zum Login</button></a>
+      </div>
+    </div>
+
+    <div class="card" style="max-width:620px">
+      <h2>Erst-Setup (Admin anlegen)</h2>
+      <p>Einmalig: Erstellt den ersten Admin-User.</p>
+
+      <label>Setup Key</label>
+      <input id="k" placeholder="SETUP_KEY" />
+
+      <label>Admin Username</label>
+      <input id="u" autocomplete="username" />
+
+      <label>Admin Passwort (min. 10 Zeichen)</label>
+      <input id="p" type="password" autocomplete="new-password" />
+
+      <div class="spacer"></div>
+      <button class="primary" id="btn">Admin erstellen</button>
+
+      <div id="msg" class="notice small" style="display:none"></div>
+    </div>
+  </div>
+
+  <script>
+    const msg = document.getElementById("msg");
+    const show = (t, ok=true) => {
+      msg.style.display = "block";
+      msg.textContent = t;
+      msg.className = "notice small " + (ok ? "ok" : "err");
+    };
+
+    document.getElementById("btn").addEventListener("click", async () => {
+      const setupKey = document.getElementById("k").value.trim();
+      const username = document.getElementById("u").value.trim();
+      const password = document.getElementById("p").value;
+
+      const res = await fetch("/api/setup", {
+        method: "POST",
+        headers: {"content-type":"application/json"},
+        body: JSON.stringify({ setupKey, username, password })
+      });
+
+      const data = await res.json().catch(()=>({ok:false,error:"Invalid response"}));
+      if (!res.ok || !data.ok) return show(data.error || "Setup fehlgeschlagen.", false);
+
+      show("Admin erstellt! Jetzt kannst du dich einloggen.", true);
+      setTimeout(()=> location.href="/login.html", 900);
+    });
+  </script>
+</body>
+</html>
