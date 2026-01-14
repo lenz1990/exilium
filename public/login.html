@@ -7,54 +7,70 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <div class="container">
-    <div class="nav">
-      <div class="brand"><a href="/">EXILIUM</a> <span class="badge">Login</span></div>
-      <div class="row">
-        <a href="/setup.html"><button>Admin-Setup</button></a>
+  <div class="bg"></div>
+
+  <main class="wrap">
+    <header class="top">
+      <div class="brand">EXILIUM <span class="pill">Login</span></div>
+      <a class="btn ghost" href="/">Start</a>
+    </header>
+
+    <section class="card">
+      <h1>Login</h1>
+
+      <div class="field">
+        <label>Username</label>
+        <input id="u" autocomplete="username" />
       </div>
-    </div>
 
-    <div class="card" style="max-width:520px">
-      <h2>Login</h2>
-      <p>Username + Passwort (ohne Email).</p>
+      <div class="field">
+        <label>Password</label>
+        <input id="p" type="password" autocomplete="current-password" />
+      </div>
 
-      <label>Username</label>
-      <input id="u" autocomplete="username" />
-      <label>Passwort</label>
-      <input id="p" type="password" autocomplete="current-password" />
+      <button id="btn" class="btn">Einloggen</button>
 
-      <div class="spacer"></div>
-      <button class="primary" id="btn">Einloggen</button>
-
-      <div id="msg" class="notice small" style="display:none"></div>
-    </div>
-  </div>
+      <div id="msg" class="msg"></div>
+      <p class="muted small">Falls du Admin noch nicht angelegt hast: <a href="/setup">Setup öffnen</a></p>
+    </section>
+  </main>
 
   <script>
+    async function api(path, opts = {}) {
+      const res = await fetch(path, {
+        ...opts,
+        credentials: "include",
+        headers: { "content-type": "application/json", ...(opts.headers || {}) }
+      });
+      const text = await res.text();
+      let data = {};
+      try { data = text ? JSON.parse(text) : {}; } catch {}
+      return { res, data };
+    }
+
+    // Wenn bereits eingeloggt => direkt App
+    (async () => {
+      const { data } = await api("/api/me", { method: "GET" });
+      if (data && data.ok && data.user) location.href = "/app";
+    })();
+
     const msg = document.getElementById("msg");
-    const show = (t, ok=true) => {
-      msg.style.display = "block";
-      msg.textContent = t;
-      msg.className = "notice small " + (ok ? "ok" : "err");
-    };
-
     document.getElementById("btn").addEventListener("click", async () => {
+      msg.textContent = "";
       const username = document.getElementById("u").value.trim();
-      const password = document.getElementById("p").value;
+      const password = document.getElementById("p").value.trim();
 
-      if (!username || !password) return show("Bitte Username und Passwort eingeben.", false);
-
-      const res = await fetch("/api/login", {
+      const { res, data } = await api("/api/login", {
         method: "POST",
-        headers: {"content-type":"application/json"},
         body: JSON.stringify({ username, password })
       });
 
-      const data = await res.json().catch(()=>({ok:false,error:"Invalid response"}));
-      if (!res.ok || !data.ok) return show(data.error || "Login fehlgeschlagen.", false);
-
-      location.href = "/app.html";
+      if (res.ok && data.ok) {
+        location.href = "/app";
+      } else {
+        msg.textContent = (data && data.error) ? data.error : "Login fehlgeschlagen";
+        msg.className = "msg err";
+      }
     });
   </script>
 </body>
