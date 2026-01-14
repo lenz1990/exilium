@@ -1,64 +1,157 @@
-const who = document.getElementById("who");
-const logoutBtn = document.getElementById("logout");
-
-const adminBox = document.getElementById("adminBox");
-const adminMsg = document.getElementById("adminMsg");
-const createUserForm = document.getElementById("createUserForm");
-
-function showAdmin(text, ok = false) {
-  adminMsg.textContent = text || "";
-  adminMsg.className = "msg " + (ok ? "ok" : "err");
-}
-
-async function api(path, options = {}) {
+async function api(path, opts = {}) {
   const res = await fetch(path, {
-    ...options,
-    headers: { "content-type": "application/json", ...(options.headers || {}) },
+    credentials: "same-origin",
+    headers: { "content-type": "application/json; charset=utf-8", ...(opts.headers || {}) },
+    ...opts,
   });
+
   let data = null;
-  try { data = await res.json(); } catch {}
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) {
+    data = await res.json().catch(() => null);
+  } else {
+    const txt = await res.text().catch(() => "");
+    data = { ok: res.ok, raw: txt };
+  }
+
   return { res, data };
 }
 
-(async () => {
-  const { res, data } = await api("/api/me");
-  if (!res.ok || !data?.user) {
-    location.href = "/login";
+function setMsg(el, text, ok = false) {
+  if (!el) return;
+  el.textContent = text || "";
+  el.style.display = text ? "block" : "none";
+  el.classList.remove("ok", "err");
+  el.classList.add(ok ? "ok" : "err");
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+async function loadMe() {
+  const { res, data } = await api("/api/me", { method: "GET" });
+  if (!res.ok || !data?.ok) return null;
+  return data.user || null;
+}
+
+async function loadUsers() {
+  const tbody = document.getElementById("usersTbody");
+  const msg = document.getElementById("usersMsg");
+  setMsg(msg, "");
+
+  tbody.innerHTML = `<tr><td colspan="4" class="muted">Lade…</td></tr>`;
+
+  const { res, data } = await api("/api/users", { method: "GET" });
+  if (!res.ok || !data?.ok) {
+    const err = data?.error || `Fehler (${res.status})`;
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">${escapeHtml(err)}</td></tr>`;
+    setMsg(msg, `User-Liste konnte nicht geladen werden: ${err}`, false);
     return;
   }
 
-  who.textContent = `Eingeloggt als ${data.user.username}${data.user.is_admin ? " (Admin)" : ""}`;
-
-  if (data.user.is_admin) {
-    adminBox.style.display = "block";
+  const users = data.users || [];
+  if (!users.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="muted">Keine User gefunden.</td></tr>`;
+    return;
   }
-})();
 
-logoutBtn.addEventListener("click", async () => {
-  await api("/api/logout", { method: "POST", body: "{}" });
-  location.href = "/login";
-});
+  tbody.innerHTML = users.map(u => {
+    const isAdmin = u.is_admin ? "ja" : "nein";
+    return `
+      <tr>
+        <td>${escapeHtml(u.id)}</td>
+        <td>${escapeHtml(u.username)}</td>
+        <td>${escapeHtml(isAdmin)}</td>
+        <td>
+          <button class="btn btn-danger btn-sm" data-del="${escapeHtml(u.id)}">Löschen</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
 
-createUserForm?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  showAdmin("");
+  tbody.querySelectorAll("[data-del]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-del");
+      if (!confirm(`User #${id} wirklich löschen?`)) return;
 
-  const username = document.getElementById("newUser").value.trim();
-  const password = document.getElementById("newPass").value;
+      const { res, data } = await api(`/api/users/${id}`, { method: "DELETE" });
+      if (!res.ok || !data?.ok) {
+        const err = data?.error || `Fehler (${res.status})`;
+        setMsg(msg, `Löschen fehlgeschlagen: ${err}`, false);
+        return;
+      }
 
-  if (!username || !password) return showAdmin("Bitte Username + Passwort eingeben.");
-  if (password.length < 10) return showAdmin("Passwort muss mindestens 10 Zeichen haben.");
+      setMsg(msg, `User #${id} gelöscht.`, true);
+      await loadUsers();
+    });
+  });
+}
 
-  const { res, data } = await api("/api/users/create", {
-    method: "POST",
-    body: JSON.stringify({ username, password }),
+async function main() {
+  const logoutBtn = document.getElementById("logoutBtn");
+  const welcomeText = document.getElementById("welcomeText");
+  const adminCard = document.getElementById("adminCard");
+  const refreshUsersBtn = document.getElementById("refreshUsersBtn");
+
+  // Login-Status prüfen
+  const me = await loadMe();
+  if (!me) {
+    // nicht eingeloggt -> Login
+    window.location.href = "/login";
+    return;
+  }
+
+  welcomeText.textContent = `Eingeloggt als ${me.username}${me.is_admin ? " (Admin)" : ""}`;
+
+  // Logout
+  logoutBtn.addEventListener("click", async () => {
+    await api("/api/logout", { method: "POST" });
+    window.location.href = "/login";
   });
 
-  if (!res.ok || !data?.ok) {
-    showAdmin(data?.error || `Fehler (${res.status})`);
-    return;
-  }
+  // Admin-UI
+  if (me.is_admin) {
+    adminCard.style.display = "block";
 
-  showAdmin("User erstellt ✅", true);
-  createUserForm.reset();
+    // Create user
+    const form = document.getElementById("createUserForm");
+    const createMsg = document.getElementById("createMsg");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      setMsg(createMsg, "");
+
+      const username = document.getElementById("newUsername").value.trim();
+      const password = document.getElementById("newPassword").value.trim();
+      const is_admin = document.getElementById("newIsAdmin").checked;
+
+      const { res, data } = await api("/api/users", {
+        method: "POST",
+        body: JSON.stringify({ username, password, is_admin }),
+      });
+
+      if (!res.ok || !data?.ok) {
+        const err = data?.error || `Fehler (${res.status})`;
+        setMsg(createMsg, `User konnte nicht erstellt werden: ${err}`, false);
+        return;
+      }
+
+      setMsg(createMsg, `User erstellt: ${data.user?.username} (#${data.user?.id})`, true);
+      document.getElementById("newPassword").value = "";
+      await loadUsers();
+    });
+
+    refreshUsersBtn.addEventListener("click", loadUsers);
+
+    // initial laden
+    await loadUsers();
+  }
+}
+
+main().catch((err) => {
+  console.error(err);
+  alert("Unerwarteter Fehler – siehe Console.");
 });
