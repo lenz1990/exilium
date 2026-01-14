@@ -1,75 +1,88 @@
-import {
-  json,
-  bad,
-  readJson,
-  requireUser,
-  makePasswordRecord,
-  rateLimit,
-  getClientIp,
-} from "../../_shared.js";
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Exilium – Dashboard</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-title">EXILIUM</div>
+        <span class="pill">Dashboard</span>
+      </div>
 
-export async function onRequestGet(context) {
-  const { env } = context;
+      <button id="logoutBtn" class="btn btn-danger" type="button">Logout</button>
+    </header>
 
-  const auth = await requireUser(context);
-  if (auth.response) return auth.response;
-  if (!auth.user.is_admin) return bad(403, "Admin only");
+    <main class="content">
+      <div class="grid">
+        <section class="card">
+          <h2 class="card-title">Willkommen</h2>
+          <div id="welcomeText" class="muted">Lade…</div>
+        </section>
 
-  const res = await env.DB.prepare(
-    "SELECT id, username, is_admin FROM users ORDER BY id ASC"
-  ).all();
+        <section id="adminCard" class="card" style="display:none;">
+          <h2 class="card-title">Admin: User verwalten</h2>
 
-  return json({ ok: true, users: res.results || [] });
-}
+          <div class="admin-split">
+            <div>
+              <h3 class="card-subtitle">User anlegen</h3>
 
-export async function onRequestPost(context) {
-  const { env, request } = context;
+              <form id="createUserForm" class="form">
+                <label class="label">Neuer Username</label>
+                <input id="newUsername" class="input" autocomplete="off" />
 
-  const auth = await requireUser(context);
-  if (auth.response) return auth.response;
-  if (!auth.user.is_admin) return bad(403, "Admin only");
+                <label class="label">Neues Passwort (min. 10 Zeichen)</label>
+                <input id="newPassword" class="input" type="password" />
 
-  // Rate limit (pro IP)
-  const ip = getClientIp(request);
-  const rl = await rateLimit(env, `admin_create_user:${ip}`, 20, 300);
-  if (!rl.allowed) return bad(429, "Too many attempts");
+                <label class="checkbox">
+                  <input id="newIsAdmin" type="checkbox" />
+                  <span>Als Admin anlegen</span>
+                </label>
 
-  const body = await readJson(request);
-  const username = String(body.username || "").trim();
-  const password = String(body.password || "").trim();
-  const is_admin = body.is_admin ? 1 : 0;
+                <button class="btn" type="submit">User erstellen</button>
+              </form>
 
-  if (!username) return bad(400, "username required");
-  if (username.length < 2 || username.length > 32) return bad(400, "username must be 2-32 chars");
-  if (!password) return bad(400, "password required");
-  if (password.length < 10) return bad(400, "password must be at least 10 chars");
+              <div id="createMsg" class="msg"></div>
+            </div>
 
-  const exists = await env.DB.prepare("SELECT id FROM users WHERE username = ?")
-    .bind(username)
-    .first();
-  if (exists) return bad(409, "username already exists");
+            <div>
+              <div class="row row-between">
+                <h3 class="card-subtitle">User-Liste</h3>
+                <button id="refreshUsersBtn" class="btn btn-secondary" type="button">Aktualisieren</button>
+              </div>
 
-  const rec = await makePasswordRecord(password, env.PASSWORD_PEPPER || "");
+              <div id="usersMsg" class="msg"></div>
 
-  const ins = await env.DB.prepare(
-    "INSERT INTO users (username, password_hash, salt, is_admin) VALUES (?, ?, ?, ?)"
-  )
-    .bind(username, rec.hash_b64, rec.salt_b64, is_admin)
-    .run();
+              <div class="table-wrap">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Username</th>
+                      <th>Admin</th>
+                      <th>Aktion</th>
+                    </tr>
+                  </thead>
+                  <tbody id="usersTbody">
+                    <tr><td colspan="4" class="muted">Lade…</td></tr>
+                  </tbody>
+                </table>
+              </div>
 
-  const newId = ins?.meta?.last_row_id;
-  let created = null;
+              <div class="hint muted">
+                Hinweis: Du kannst deinen eigenen Account nicht löschen (und ID 1 ist geschützt).
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
 
-  if (newId) {
-    created = await env.DB.prepare(
-      "SELECT id, username, is_admin FROM users WHERE id = ?"
-    ).bind(newId).first();
-  } else {
-    // Fallback, falls last_row_id nicht da ist
-    created = await env.DB.prepare(
-      "SELECT id, username, is_admin FROM users WHERE username = ?"
-    ).bind(username).first();
-  }
-
-  return json({ ok: true, user: created });
-}
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
