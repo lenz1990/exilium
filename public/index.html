@@ -7,32 +7,27 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <div class="container">
-    <div class="nav">
-      <div class="brand">EXILIUM <span class="badge">Pages + D1</span></div>
+  <div class="bg"></div>
+
+  <main class="wrap">
+    <header class="top">
+      <div class="brand">EXILIUM <span class="pill">Pages + D1</span></div>
+      <a class="btn ghost" href="/login">Login</a>
+    </header>
+
+    <section class="card">
+      <h1>Exilium Website</h1>
+      <p class="muted">Starter-Website mit Username+Password Login (ohne Email) und SQL-Datenbank (D1/SQLite).</p>
+
       <div class="row">
-        <a href="/login.html"><button class="primary">Login</button></a>
-      </div>
-    </div>
-
-    <div class="grid">
-      <div class="card">
-        <h1>Exilium Website</h1>
-        <p>Starter-Website mit Username+Passwort Login (ohne Email) und SQL-Datenbank (D1/SQLite).</p>
-        <div class="row">
-          <a href="/login.html"><button class="primary">Zum Login</button></a>
-          <a href="/setup.html"><button>Erst-Setup (Admin)</button></a>
-        </div>
-        <div class="notice small">
-          Tipp: Nach dem Setup kannst du <b>setup.html</b> später wieder löschen/ausblenden.
-        </div>
+        <a class="btn" href="/login">Zum Login</a>
+        <a class="btn ghost" href="/setup">Erst-Setup (Admin)</a>
       </div>
 
-      <div class="card">
-        <h2>Was du als Nächstes machst</h2>
-        <p>1) Admin anlegen (Setup) → 2) Login → 3) Im Dashboard neue Users erstellen → 4) Inhalte erweitern.</p>
+      <div class="hint">
+        Tipp: Nach dem Setup kannst du <code>setup.html</code> später umbenennen (z.B. <code>setup.disabled.html</code>).
       </div>
-    </div>
-  </div>
+    </section>
+  </main>
 </body>
 </html>
