@@ -2,31 +2,78 @@
 <html lang="de">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Login – Exilium</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
+
 <body>
-  <main class="card">
-    <h1>Login</h1>
+  <main style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;">
+    <section class="card" style="width:min(520px, 92vw);">
+      <h1 style="margin:0 0 16px 0;">Login</h1>
 
-    <form id="form">
-      <label>Username</label>
-      <input id="username" autocomplete="username" />
+      <form id="loginForm" autocomplete="on">
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label for="username">Username</label>
+          <input id="username" name="username" type="text" autocomplete="username" required />
 
-      <label>Passwort</label>
-      <input id="password" type="password" autocomplete="current-password" />
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
 
-      <button class="btn" type="submit">Einloggen</button>
-    </form>
+          <button type="submit" style="margin-top:8px;">Einloggen</button>
 
-    <div id="msg" class="msg"></div>
+          <div id="error" style="display:none; margin-top:10px; padding:10px; border:1px solid rgba(255,0,0,.35); border-radius:10px;">
+          </div>
+        </div>
+      </form>
 
-    <p class="muted">
-      <a href="/">Start</a> · <a href="/setup">Setup</a>
-    </p>
+      <div style="margin-top:18px; opacity:.85;">
+        <a href="/">Start</a> · <a href="/setup">Setup</a>
+      </div>
+    </section>
   </main>
 
- <script type="module" src="/login.js"></script>
+  <script>
+    const form = document.getElementById("loginForm");
+    const u = document.getElementById("username");
+    const p = document.getElementById("password");
+    const err = document.getElementById("error");
+
+    function showError(msg) {
+      if (!msg) { err.style.display = "none"; err.textContent = ""; return; }
+      err.style.display = "block";
+      err.textContent = msg;
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      showError("");
+
+      const username = (u.value || "").trim();
+      const password = (p.value || "").trim();
+      if (!username || !password) return showError("Bitte Username + Passwort eingeben.");
+
+      try {
+        const res = await fetch("/api/login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ username, password })
+        });
+
+        let data = null;
+        try { data = await res.json(); } catch (_) {}
+
+        if (!res.ok || !data || data.ok !== true) {
+          throw new Error((data && data.error) ? data.error : ("Login fehlgeschlagen (" + res.status + ")"));
+        }
+
+        // Erfolgreich -> App
+        location.href = "/app";
+      } catch (e2) {
+        showError(e2.message || "Login fehlgeschlagen.");
+      }
+    });
+  </script>
 </body>
 </html>
