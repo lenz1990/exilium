@@ -1,9 +1,13 @@
-/app    /app.html   200
-/app/   /app.html   200
+# --- Rewrites (kein Redirect) ---
+/app      /app.html            200
+/app/     /app.html            200
 
-/login  /login.html 200
-/login/ /login.html 200
+/login    /login.html          200
+/login/   /login.html          200
 
-# Setup bleibt erreichbar, aber ist "deaktiviert" (kein Redirect-Loop mehr)
-/setup  /setup.disabled.html 200
-/setup/ /setup.disabled.html 200
+# Setup NICHT redirecten (sonst Loop möglich)
+/setup    /setup.disabled.html 200
+/setup/   /setup.disabled.html 200
+
+# optional: Root bleibt index
+/         /index.html          200
