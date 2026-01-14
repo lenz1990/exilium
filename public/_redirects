@@ -1,2 +1,5 @@
-/setup        /      302
-/setup/*      /      302
+/app    /app.html   200
+/login  /login.html 200
+
+# Setup nach dem Admin-Setup komplett weg
+/setup  /login      302
