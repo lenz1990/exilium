@@ -1,13 +1,14 @@
-# --- Rewrites (kein Redirect) ---
-/app      /app.html            200
-/app/     /app.html            200
+# --- API niemals umschreiben ---
+/api/*   /api/:splat   200
 
-/login    /login.html          200
-/login/   /login.html          200
+# --- Pages (alles nur REWRITE 200, KEINE 302/301) ---
+/        /index.html          200
 
-# Setup NICHT redirecten (sonst Loop möglich)
-/setup    /setup.disabled.html 200
-/setup/   /setup.disabled.html 200
+/login   /login.html          200
+/login/  /login.html          200
 
-# optional: Root bleibt index
-/         /index.html          200
+/app     /app.html            200
+/app/    /app.html            200
+
+/setup   /setup.html          200
+/setup/  /setup.html          200
