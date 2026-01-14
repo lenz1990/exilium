@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin – Exilium</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">EXILIUM <span class="badge">Admin</span></div>
+    <div class="actions">
+      <a class="btn" href="/app">Zur App</a>
+      <button class="btn danger" id="logoutBtn">Logout</button>
+    </div>
+  </div>
+
+  <main class="container">
+    <section class="card">
+      <h2>Admin – User verwalten</h2>
+      <div id="status" class="hint"></div>
+
+      <div class="grid">
+        <div class="card inner">
+          <h3>Neuen User anlegen</h3>
+          <label>Username</label>
+          <input id="newUsername" autocomplete="off" />
+          <label>Passwort (min. 10 Zeichen)</label>
+          <input id="newPassword" type="password" />
+          <label style="display:flex; gap:.5rem; align-items:center; margin-top:.5rem;">
+            <input id="newIsAdmin" type="checkbox" />
+            Admin
+          </label>
+          <button class="btn" id="createBtn">User erstellen</button>
+        </div>
+
+        <div class="card inner">
+          <h3>Passwort zurücksetzen</h3>
+          <label>User</label>
+          <select id="pwUser"></select>
+          <label>Neues Passwort (min. 10 Zeichen)</label>
+          <input id="pwNew" type="password" />
+          <button class="btn" id="pwBtn">Passwort setzen</button>
+        </div>
+      </div>
+
+      <div class="card inner" style="margin-top:1rem;">
+        <h3>Users</h3>
+        <div style="overflow:auto;">
+          <table class="table" id="usersTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Admin</th>
+                <th>Aktionen</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button class="btn" id="reloadBtn" style="margin-top:.75rem;">Neu laden</button>
+      </div>
+
+    </section>
+  </main>
+
+  <script type="module" src="/admin.js"></script>
+</body>
+</html>
