@@ -7,77 +7,28 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <div class="bg"></div>
+  <main class="card">
+    <h1>Erst-Setup (Admin anlegen)</h1>
+    <p class="muted">Einmalig: erstellt den ersten Admin-User.</p>
 
-  <main class="wrap">
-    <header class="top">
-      <div class="brand">EXILIUM <span class="pill">Setup</span></div>
-      <a class="btn ghost" href="/login">Zum Login</a>
-    </header>
+    <form id="form">
+      <label>Setup Key</label>
+      <input id="setupKey" autocomplete="off" />
 
-    <section class="card">
-      <h1>Erst-Setup (Admin anlegen)</h1>
-      <p class="muted">Einmalig: Erstellt den ersten Admin-User.</p>
+      <label>Admin Username</label>
+      <input id="username" autocomplete="off" />
 
-      <div class="field">
-        <label>Setup Key</label>
-        <input id="k" autocomplete="off" />
-      </div>
+      <label>Admin Passwort (min. 10 Zeichen)</label>
+      <input id="password" type="password" />
 
-      <div class="field">
-        <label>Admin Username</label>
-        <input id="u" autocomplete="username" />
-      </div>
+      <button class="btn" type="submit">Admin erstellen</button>
+    </form>
 
-      <div class="field">
-        <label>Admin Password (min. 10 Zeichen)</label>
-        <input id="p" type="password" autocomplete="new-password" />
-      </div>
+    <div id="msg" class="msg"></div>
 
-      <button id="btn" class="btn">Admin erstellen</button>
-
-      <div id="msg" class="msg"></div>
-    </section>
+    <p class="muted"><a href="/">Start</a> · <a href="/login">Login</a></p>
   </main>
 
-  <script>
-    async function api(path, opts = {}) {
-      const res = await fetch(path, {
-        ...opts,
-        credentials: "include",
-        headers: { "content-type": "application/json", ...(opts.headers || {}) }
-      });
-      const text = await res.text();
-      let data = {};
-      try { data = text ? JSON.parse(text) : {}; } catch {}
-      return { res, data };
-    }
-
-    // Wenn schon eingeloggt => App
-    (async () => {
-      const { data } = await api("/api/me", { method: "GET" });
-      if (data && data.ok && data.user) location.href = "/app";
-    })();
-
-    const msg = document.getElementById("msg");
-    document.getElementById("btn").addEventListener("click", async () => {
-      msg.textContent = "";
-      const setupKey = document.getElementById("k").value.trim();
-      const username = document.getElementById("u").value.trim();
-      const password = document.getElementById("p").value.trim();
-
-      const { res, data } = await api("/api/setup", {
-        method: "POST",
-        body: JSON.stringify({ setupKey, username, password })
-      });
-
-      if (res.ok && data.ok) {
-        location.href = "/app";
-      } else {
-        msg.textContent = (data && data.error) ? data.error : "Setup fehlgeschlagen";
-        msg.className = "msg err";
-      }
-    });
-  </script>
+  <script type="module" src="/setup.js"></script>
 </body>
 </html>
