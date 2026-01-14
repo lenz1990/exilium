@@ -1,4 +1,12 @@
-import { json, bad, readJson, requireUser, makePasswordRecord } from "../../_shared.js";
+import {
+  bad,
+  json,
+  readJson,
+  getClientIp,
+  makePasswordRecord,
+  requireUser,
+  rateLimit
+} from "../../_shared.js";
 
 export async function onRequestPost(context) {
   const { env, request } = context;
@@ -7,26 +15,26 @@ export async function onRequestPost(context) {
   if (response) return response;
   if (!user.is_admin) return bad(403, "Admin only");
 
+  const ip = getClientIp(request);
+  const rl = await rateLimit(env, `create_user:${ip}`, 20, 300);
+  if (!rl.allowed) return bad(429, "Too many attempts");
+
   const body = await readJson(request);
   const username = (body.username || "").trim();
   const password = (body.password || "").trim();
 
   if (!username || !password) return bad(400, "username and password required");
-  if (username.length < 3) return bad(400, "Username too short");
   if (password.length < 10) return bad(400, "Password must be at least 10 characters");
 
-  const rec = await makePasswordRecord(password, env.PASSWORD_PEPPER || "");
+  const exists = await env.DB.prepare("SELECT id FROM users WHERE username = ?").bind(username).first();
+  if (exists) return bad(409, "Username already exists");
+
   const createdAt = Math.floor(Date.now() / 1000);
+  const rec = await makePasswordRecord(password, env.PASSWORD_PEPPER || "");
 
-  try {
-    await env.DB.prepare(
-      "INSERT INTO users (username, password_hash, salt, created_at, is_admin) VALUES (?, ?, ?, ?, 0)"
-    )
-      .bind(username, rec.hash_b64, rec.salt_b64, createdAt)
-      .run();
-  } catch (e) {
-    return bad(400, "Username already exists (or DB error)");
-  }
+  await env.DB.prepare(
+    "INSERT INTO users (username, password_hash, salt, is_admin, created_at) VALUES (?, ?, ?, 0, ?)"
+  ).bind(username, rec.hash_b64, rec.salt_b64, createdAt).run();
 
-  return json({ ok: true });
+  return json({ ok: true, username });
 }
