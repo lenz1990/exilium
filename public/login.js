@@ -1,39 +1,51 @@
-(function () {
-  const form = document.getElementById("loginForm");
-  const u = document.getElementById("username");
-  const p = document.getElementById("password");
-  const err = document.getElementById("error");
+import {
+  bad,
+  readJson,
+  getClientIp,
+  verifyPassword,
+  createSession,
+  setSessionCookie,
+  rateLimit
+} from "../_shared.js";
 
-  function showError(msg) {
-    if (!err) return;
-    err.style.display = msg ? "block" : "none";
-    err.textContent = msg || "";
+export async function onRequestPost(context) {
+  const { env, request } = context;
+
+  const ip = getClientIp(request);
+  const rl = await rateLimit(env, `login:${ip}`, 10, 300);
+  if (!rl.allowed) {
+    return new Response(JSON.stringify({ ok: false, error: "Too many attempts" }), {
+      status: 429,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "retry-after": String(rl.retryAfter || 60),
+      },
+    });
   }
 
-  if (!form) return;
+  const body = await readJson(request);
+  const username = (body.username || "").trim();
+  const password = (body.password || "").trim();
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    showError("");
+  if (!username || !password) return bad(400, "username and password required");
 
-    const username = (u?.value || "").trim();
-    const password = (p?.value || "").trim();
-    if (!username || !password) return showError("Bitte Username + Passwort eingeben.");
+  const user = await env.DB.prepare(
+    "SELECT id, username, password_hash, salt, is_admin FROM users WHERE username = ?"
+  )
+    .bind(username)
+    .first();
 
-    const res = await fetch("/api/login", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ username, password }),
-    });
+  if (!user) return bad(401, "Invalid username or password");
 
-    let data = null;
-    try { data = await res.json(); } catch {}
+  const ok = await verifyPassword(password, user.salt, user.password_hash, env.PASSWORD_PEPPER || "");
+  if (!ok) return bad(401, "Invalid username or password");
 
-    if (!res.ok || !data || data.ok !== true) {
-      return showError((data && data.error) ? data.error : `Login fehlgeschlagen (${res.status})`);
-    }
+  const sid = await createSession(env, user.id);
 
-    location.href = "/app";
+  return new Response(JSON.stringify({ ok: true, username: user.username, is_admin: !!user.is_admin }), {
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "set-cookie": setSessionCookie(sid),
+    },
   });
-})();
+}
