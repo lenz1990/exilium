@@ -1,49 +1,51 @@
-const msg = document.getElementById("msg");
-const form = document.getElementById("form");
+import {
+  bad,
+  readJson,
+  getClientIp,
+  verifyPassword,
+  createSession,
+  setSessionCookie,
+  rateLimit
+} from "../_shared.js";
 
-function show(text, ok = false) {
-  msg.textContent = text || "";
-  msg.className = "msg " + (ok ? "ok" : "err");
-}
+export async function onRequestPost(context) {
+  const { env, request } = context;
 
-async function api(path, options = {}) {
-  const res = await fetch(path, {
-    ...options,
-    headers: { "content-type": "application/json", ...(options.headers || {}) },
-  });
-  let data = null;
-  try { data = await res.json(); } catch {}
-  return { res, data };
-}
-
-(async () => {
-  // Wenn schon eingeloggt -> direkt ins Dashboard
-  const { data } = await api("/api/me");
-  if (data?.user) location.href = "/app";
-})();
-
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  show("");
-
-  const username = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value;
-
-  if (!username || !password) {
-    show("Bitte Username und Passwort eingeben.");
-    return;
+  const ip = getClientIp(request);
+  const rl = await rateLimit(env, `login:${ip}`, 10, 300);
+  if (!rl.allowed) {
+    return new Response(JSON.stringify({ ok: false, error: "Too many attempts" }), {
+      status: 429,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "retry-after": String(rl.retryAfter || 60),
+      },
+    });
   }
 
-  const { res, data } = await api("/api/login", {
-    method: "POST",
-    body: JSON.stringify({ username, password }),
+  const body = await readJson(request);
+  const username = (body.username || "").trim();
+  const password = (body.password || "").trim();
+
+  if (!username || !password) return bad(400, "username and password required");
+
+  const user = await env.DB.prepare(
+    "SELECT id, username, password_hash, salt, is_admin FROM users WHERE username = ?"
+  )
+    .bind(username)
+    .first();
+
+  if (!user) return bad(401, "Invalid username or password");
+
+  const ok = await verifyPassword(password, user.salt, user.password_hash, env.PASSWORD_PEPPER || "");
+  if (!ok) return bad(401, "Invalid username or password");
+
+  const sid = await createSession(env, user.id);
+
+  return new Response(JSON.stringify({ ok: true, username: user.username, is_admin: !!user.is_admin }), {
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "set-cookie": setSessionCookie(sid),
+    },
   });
-
-  if (!res.ok || !data?.ok) {
-    show(data?.error || `Login fehlgeschlagen (${res.status})`);
-    return;
-  }
-
-  show("Login ok – weiterleiten…", true);
-  location.href = "/app";
-});
+}
