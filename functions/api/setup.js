@@ -1,49 +1,47 @@
-const msg = document.getElementById("msg");
-const form = document.getElementById("form");
+import { json, bad, readJson, getClientIp, makePasswordRecord, createSession, setSessionCookie, rateLimit } from "../_shared.js";
 
-function show(text, ok = false) {
-  msg.textContent = text || "";
-  msg.className = "msg " + (ok ? "ok" : "err");
+export async function onRequestGet(context) {
+  const row = await context.env.DB.prepare("SELECT COUNT(1) as c FROM users WHERE is_admin = 1").first();
+  const c = Number(row?.c || 0);
+  return json({ ok: true, needs_setup: c === 0 });
 }
 
-async function api(path, options = {}) {
-  const res = await fetch(path, {
-    ...options,
-    headers: { "content-type": "application/json", ...(options.headers || {}) },
-  });
-  let data = null;
-  try { data = await res.json(); } catch {}
-  return { res, data };
+export async function onRequestPost(context) {
+  const { env, request } = context;
+
+  const ip = getClientIp(request);
+  const rl = await rateLimit(env, `setup:${ip}`, 10, 300);
+  if (!rl.allowed) return bad(429, "Too many attempts");
+
+  const row = await env.DB.prepare("SELECT COUNT(1) as c FROM users WHERE is_admin = 1").first();
+  const c = Number(row?.c || 0);
+  if (c > 0) return bad(409, "Already set up");
+
+  const body = await readJson(request);
+  const setupKey = (body.setupKey || "").trim();
+  const username = (body.username || "").trim();
+  const password = (body.password || "");
+
+  if (!setupKey || !username || !password) return bad(400, "setupKey, username, password required");
+  if (!env.SETUP_KEY) return bad(500, "SETUP_KEY not configured");
+  if (setupKey !== env.SETUP_KEY) return bad(401, "Invalid setup key");
+  if (password.length < 10) return bad(400, "Password must be at least 10 characters");
+
+  const pr = await makePasswordRecord(password, env.PASSWORD_PEPPER || "");
+  const created = Math.floor(Date.now() / 1000);
+
+  const ins = await env.DB.prepare(
+    "INSERT INTO users (username, password_hash, salt, is_admin, created_at) VALUES (?, ?, ?, 1, ?)"
+  )
+    .bind(username, pr.hash_b64, pr.salt_b64, created)
+    .run();
+
+  const userId = ins.meta.last_row_id;
+
+  const sid = await createSession(env, userId);
+
+  return json(
+    { ok: true, username, is_admin: true },
+    { headers: { "set-cookie": setSessionCookie(sid) } }
+  );
 }
-
-(async () => {
-  const { data } = await api("/api/setup", { method: "GET" });
-  if (data && data.ok && data.needs_setup === false) {
-    show("Setup ist bereits erledigt. Geh zu /login.", true);
-  }
-})();
-
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  show("");
-
-  const setupKey = document.getElementById("setupKey").value.trim();
-  const username = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value;
-
-  if (!setupKey || !username || !password) return show("Alles ausfüllen.");
-  if (password.length < 10) return show("Passwort min. 10 Zeichen.");
-
-  const { res, data } = await api("/api/setup", {
-    method: "POST",
-    body: JSON.stringify({ setupKey, username, password }),
-  });
-
-  if (!res.ok || !data?.ok) {
-    show(data?.error || `Fehler (${res.status})`);
-    return;
-  }
-
-  show("Admin erstellt ✅ Weiter zu Login…", true);
-  location.href = "/login";
-});
