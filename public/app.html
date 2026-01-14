@@ -7,40 +7,32 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <div class="bg"></div>
+  <header class="top">
+    <div class="brand">EXILIUM <span class="pill">Dashboard</span></div>
+    <button id="logout" class="btn danger">Logout</button>
+  </header>
 
-  <main class="wrap">
-    <header class="top">
-      <div class="brand">EXILIUM <span class="pill">Dashboard</span></div>
-      <button id="logout" class="btn danger">Logout</button>
-    </header>
+  <main class="grid">
+    <section class="card">
+      <h2>Willkommen</h2>
+      <p id="who" class="muted">Lade…</p>
+    </section>
 
-    <section class="grid">
-      <div class="card">
-        <h2>Willkommen</h2>
-        <p class="muted" id="who">Lade…</p>
-        <div class="hint">Hier baust du jetzt eure Exilium-Inhalte rein.</div>
-      </div>
+    <section id="adminBox" class="card" style="display:none;">
+      <h2>Admin: User erstellen</h2>
+      <form id="createUserForm">
+        <label>Neuer Username</label>
+        <input id="newUser" autocomplete="off" />
 
-      <div class="card" id="adminBox" style="display:none;">
-        <h2>Admin: User erstellen</h2>
+        <label>Neues Passwort (min. 10 Zeichen)</label>
+        <input id="newPass" type="password" />
 
-        <div class="field">
-          <label>Neuer Username</label>
-          <input id="nu" />
-        </div>
-
-        <div class="field">
-          <label>Neues Passwort (min. 10 Zeichen)</label>
-          <input id="np" type="password" />
-        </div>
-
-        <button id="createUser" class="btn">User erstellen</button>
-        <div id="msg" class="msg"></div>
-      </div>
+        <button class="btn" type="submit">User erstellen</button>
+      </form>
+      <div id="adminMsg" class="msg"></div>
     </section>
   </main>
 
-  <script src="/app.js"></script>
+  <script type="module" src="/app.js"></script>
 </body>
 </html>
