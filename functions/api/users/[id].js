@@ -5,22 +5,15 @@ export async function onRequestDelete(context) {
 
   const auth = await requireUser(context);
   if (auth.response) return auth.response;
+
   if (!auth.user.is_admin) return bad(403, "Admin only");
 
-  const idRaw = String(params.id || "").trim();
-  const userId = Number(idRaw);
-  if (!Number.isInteger(userId) || userId <= 0) return bad(400, "Invalid user id");
+  const id = Number(params.id);
+  if (!Number.isFinite(id) || id <= 0) return bad(400, "invalid id");
 
-  // Sicherheits-Guards
-  if (userId === auth.user.id) return bad(400, "You cannot delete your own account");
-  if (userId === 1) return bad(400, "User #1 cannot be deleted");
+  // Admin mit ID 1 schützen (wie bei dir im Hinweis)
+  if (id === 1) return bad(400, "cannot delete protected user (id 1)");
 
-  const exists = await env.DB.prepare("SELECT id FROM users WHERE id = ?").bind(userId).first();
-  if (!exists) return bad(404, "User not found");
-
-  // Sessions vom User entfernen, dann User löschen
-  await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(userId).run();
-  await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(userId).run();
-
+  await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(id).run();
   return json({ ok: true });
 }
