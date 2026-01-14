@@ -7,12 +7,8 @@ async function api(path, opts = {}) {
 
   let data = null;
   const ct = res.headers.get("content-type") || "";
-  if (ct.includes("application/json")) {
-    data = await res.json().catch(() => null);
-  } else {
-    const txt = await res.text().catch(() => "");
-    data = { ok: res.ok, raw: txt };
-  }
+  if (ct.includes("application/json")) data = await res.json().catch(() => null);
+  else data = { ok: res.ok, raw: await res.text().catch(() => "") };
 
   return { res, data };
 }
@@ -59,15 +55,12 @@ async function loadUsers() {
   }
 
   tbody.innerHTML = users.map(u => {
-    const isAdmin = u.is_admin ? "ja" : "nein";
     return `
       <tr>
         <td>${escapeHtml(u.id)}</td>
         <td>${escapeHtml(u.username)}</td>
-        <td>${escapeHtml(isAdmin)}</td>
-        <td>
-          <button class="btn btn-danger btn-sm" data-del="${escapeHtml(u.id)}">Löschen</button>
-        </td>
+        <td>${u.is_admin ? "ja" : "nein"}</td>
+        <td><button class="btn btn-danger btn-sm" data-del="${escapeHtml(u.id)}">Löschen</button></td>
       </tr>
     `;
   }).join("");
@@ -96,27 +89,22 @@ async function main() {
   const adminCard = document.getElementById("adminCard");
   const refreshUsersBtn = document.getElementById("refreshUsersBtn");
 
-  // Login-Status prüfen
   const me = await loadMe();
   if (!me) {
-    // nicht eingeloggt -> Login
     window.location.href = "/login";
     return;
   }
 
   welcomeText.textContent = `Eingeloggt als ${me.username}${me.is_admin ? " (Admin)" : ""}`;
 
-  // Logout
   logoutBtn.addEventListener("click", async () => {
     await api("/api/logout", { method: "POST" });
     window.location.href = "/login";
   });
 
-  // Admin-UI
   if (me.is_admin) {
     adminCard.style.display = "block";
 
-    // Create user
     const form = document.getElementById("createUserForm");
     const createMsg = document.getElementById("createMsg");
 
@@ -146,7 +134,6 @@ async function main() {
 
     refreshUsersBtn.addEventListener("click", loadUsers);
 
-    // initial laden
     await loadUsers();
   }
 }
