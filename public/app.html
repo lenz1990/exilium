@@ -2,86 +2,110 @@
 <html lang="de">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Exilium – Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard – Exilium</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <div class="page">
     <header class="topbar">
       <div class="brand">
-        <div class="brand-title">EXILIUM</div>
-        <span class="pill">Dashboard</span>
+        <div class="logo">EXILIUM</div>
+        <div class="badge">Dashboard</div>
       </div>
 
-      <button id="logoutBtn" class="btn btn-danger" type="button">Logout</button>
+      <button id="logoutBtn" class="btn danger">Logout</button>
     </header>
 
-    <main class="content">
-      <div class="grid">
-        <section class="card">
-          <h2 class="card-title">Willkommen</h2>
-          <div id="welcomeText" class="muted">Lade…</div>
-        </section>
+    <main class="grid">
+      <section class="card">
+        <h2>Willkommen</h2>
+        <p id="welcomeText" class="muted">Lade…</p>
+        <div id="globalMsg" class="msg hidden"></div>
+      </section>
 
-        <section id="adminCard" class="card" style="display:none;">
-          <h2 class="card-title">Admin: User verwalten</h2>
+      <section id="adminPanel" class="card hidden">
+        <h2>Admin: User verwalten</h2>
 
-          <div class="admin-split">
-            <div>
-              <h3 class="card-subtitle">User anlegen</h3>
+        <!-- User anlegen -->
+        <div class="subcard">
+          <h3>User anlegen</h3>
+          <form id="createUserForm" class="form">
+            <label>
+              <span>Neuer Username</span>
+              <input id="newUsername" autocomplete="off" required />
+            </label>
 
-              <form id="createUserForm" class="form">
-                <label class="label">Neuer Username</label>
-                <input id="newUsername" class="input" autocomplete="off" />
+            <label>
+              <span>Neues Passwort (min. 10 Zeichen)</span>
+              <input id="newPassword" type="password" minlength="10" required />
+            </label>
 
-                <label class="label">Neues Passwort (min. 10 Zeichen)</label>
-                <input id="newPassword" class="input" type="password" />
+            <label class="row">
+              <input id="newIsAdmin" type="checkbox" />
+              <span>Als Admin anlegen</span>
+            </label>
 
-                <label class="checkbox">
-                  <input id="newIsAdmin" type="checkbox" />
-                  <span>Als Admin anlegen</span>
-                </label>
+            <button class="btn" type="submit">User erstellen</button>
+            <div id="createMsg" class="msg hidden"></div>
+          </form>
+        </div>
 
-                <button class="btn" type="submit">User erstellen</button>
-              </form>
-
-              <div id="createMsg" class="msg"></div>
-            </div>
-
-            <div>
-              <div class="row row-between">
-                <h3 class="card-subtitle">User-Liste</h3>
-                <button id="refreshUsersBtn" class="btn btn-secondary" type="button">Aktualisieren</button>
-              </div>
-
-              <div id="usersMsg" class="msg"></div>
-
-              <div class="table-wrap">
-                <table class="table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Username</th>
-                      <th>Admin</th>
-                      <th>Aktion</th>
-                    </tr>
-                  </thead>
-                  <tbody id="usersTbody">
-                    <tr><td colspan="4" class="muted">Lade…</td></tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div class="hint muted">
-                Hinweis: Du kannst deinen eigenen Account nicht löschen (und ID 1 ist geschützt).
-              </div>
-            </div>
+        <!-- User Liste -->
+        <div class="subcard">
+          <div class="row space">
+            <h3>User-Liste</h3>
+            <button id="refreshUsersBtn" class="btn secondary" type="button">Aktualisieren</button>
           </div>
-        </section>
-      </div>
+
+          <div class="tableWrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Username</th>
+                  <th>Admin</th>
+                  <th>Aktion</th>
+                </tr>
+              </thead>
+              <tbody id="usersTbody"></tbody>
+            </table>
+          </div>
+
+          <p class="muted small">
+            Hinweis: Du kannst deinen eigenen Account nicht löschen (und ID 1 ist geschützt).
+          </p>
+
+          <div id="usersMsg" class="msg hidden"></div>
+        </div>
+      </section>
     </main>
   </div>
+
+  <!-- Reset Dialog -->
+  <dialog id="resetDialog" class="dialog">
+    <form method="dialog" class="dialogCard" id="resetForm">
+      <h3>Passwort zurücksetzen</h3>
+      <p class="muted" id="resetUserLabel">User: —</p>
+
+      <label>
+        <span>Neues Passwort (min. 10 Zeichen)</span>
+        <input id="resetPassword" type="password" minlength="10" required />
+      </label>
+
+      <label class="row">
+        <input id="resetInvalidate" type="checkbox" checked />
+        <span>User sofort ausloggen (Sessions löschen)</span>
+      </label>
+
+      <div class="row right gap">
+        <button type="button" id="resetCancelBtn" class="btn secondary">Abbrechen</button>
+        <button type="submit" id="resetSubmitBtn" class="btn">Reset durchführen</button>
+      </div>
+
+      <div id="resetMsg" class="msg hidden"></div>
+    </form>
+  </dialog>
 
   <script type="module" src="/app.js"></script>
 </body>
