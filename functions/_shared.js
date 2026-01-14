@@ -2,7 +2,7 @@ const encoder = new TextEncoder();
 
 const COOKIE_NAME = "__Host-exilium_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
-const PBKDF2_ITERATIONS = 310_000;
+const PBKDF2_ITERATIONS = 100_000;
 const PBKDF2_HASH = "SHA-256";
 const HASH_BYTES = 32;
 
