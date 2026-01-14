@@ -5,45 +5,100 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Login – Exilium</title>
   <link rel="stylesheet" href="/styles.css" />
-  <meta http-equiv="Cache-Control" content="no-store" />
 </head>
 <body>
-  <main class="page">
-    <header class="topbar">
-      <div class="brand">
-        <span class="brand__title">EXILIUM</span>
-        <span class="brand__badge">Login</span>
-      </div>
-    </header>
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;">
+    <div style="width:min(560px,100%);background:rgba(20,20,28,.55);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:22px;box-shadow:0 10px 30px rgba(0,0,0,.35);">
+      <h1 style="font-size:26px;margin:0 0 14px 0;">Login</h1>
 
-    <section class="card">
-      <h1 class="card__title">Login</h1>
+      <form id="loginForm" autocomplete="on">
+        <div style="margin:12px 0;">
+          <label for="username" style="display:block;opacity:.85;margin-bottom:6px;">Username</label>
+          <input id="username" name="username" type="text" autocomplete="username" required
+                 style="width:100%;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.25);color:#fff;outline:none;">
+        </div>
 
-      <form id="loginForm" class="form" autocomplete="on">
-        <label class="field">
-          <span class="field__label">Username</span>
-          <input id="username" name="username" class="field__input" type="text" autocomplete="username" required />
-        </label>
+        <div style="margin:12px 0;">
+          <label for="password" style="display:block;opacity:.85;margin-bottom:6px;">Passwort</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required
+                 style="width:100%;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.25);color:#fff;outline:none;">
+        </div>
 
-        <label class="field">
-          <span class="field__label">Passwort</span>
-          <input id="password" name="password" class="field__input" type="password" autocomplete="current-password" required />
-        </label>
+        <button id="btn" type="submit"
+                style="margin-top:10px;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(90,90,255,.25);color:#fff;cursor:pointer;">
+          Einloggen
+        </button>
 
-        <button class="btn" type="submit">Einloggen</button>
-
-        <div id="error" class="error" style="display:none;"></div>
+        <div id="msg"
+             style="margin-top:12px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,80,80,.35);background:rgba(120,0,0,.18);display:none;"></div>
       </form>
 
-      <div class="links">
-        <a href="/">Start</a>
-        <span class="dot">•</span>
-        <a href="/setup">Setup</a>
+      <div style="margin-top:14px;opacity:.85;display:flex;gap:10px;flex-wrap:wrap;">
+        <a href="/" style="color:#b8c6ff;text-decoration:none;">Start</a>
+        <a href="/setup" style="color:#b8c6ff;text-decoration:none;">Setup</a>
       </div>
-    </section>
-  </main>
+    </div>
+  </div>
 
-  <!-- WICHTIG: NICHT type="module" -->
-  <script src="/login.js" defer></script>
+  <script>
+    (function () {
+      const form = document.getElementById("loginForm");
+      const btn = document.getElementById("btn");
+      const msg = document.getElementById("msg");
+
+      function showError(text) {
+        msg.style.display = "block";
+        msg.textContent = text || "Fehler";
+      }
+      function clearError() {
+        msg.style.display = "none";
+        msg.textContent = "";
+      }
+
+      // Wenn Session existiert -> /app
+      fetch("/api/me", { credentials: "include" })
+        .then(r => r.json().catch(() => null))
+        .then(data => {
+          if (data && data.ok && data.user) window.location.href = "/app";
+        })
+        .catch(() => {});
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        clearError();
+
+        const username = (document.getElementById("username").value || "").trim();
+        const password = (document.getElementById("password").value || "").trim();
+
+        if (!username || !password) return showError("Bitte Username und Passwort eingeben.");
+
+        btn.disabled = true;
+        btn.textContent = "…";
+
+        try {
+          const res = await fetch("/api/login", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ username, password })
+          });
+
+          const data = await res.json().catch(() => null);
+
+          if (!res.ok || !data || data.ok !== true) {
+            const err = (data && (data.error || data.message)) ? (data.error || data.message) : ("Login fehlgeschlagen (" + res.status + ")");
+            return showError(err);
+          }
+
+          window.location.href = "/app";
+        } catch (err) {
+          showError("Netzwerkfehler: " + (err && err.message ? err.message : String(err)));
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Einloggen";
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
