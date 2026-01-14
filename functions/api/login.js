@@ -1,107 +1,68 @@
-// public/login.js
-function $(sel) {
-  return document.querySelector(sel);
-}
+import {
+  json,
+  bad,
+  readJson,
+  getClientIp,
+  verifyPassword,
+  createSession,
+  setSessionCookie,
+  rateLimit,
+} from "../_shared.js";
 
-function findUsernameInput() {
-  return (
-    $('input[name="username"]') ||
-    $('#username') ||
-    $('input[autocomplete="username"]') ||
-    $('input[type="text"]')
-  );
-}
+/**
+ * Wichtig: Wir nutzen absichtlich "onRequest" (nicht onRequestPost),
+ * damit Cloudflare garantiert auch POST an dieses File durchreicht.
+ * Zusätzlich gibt GET eine Debug-Antwort zurück, damit du sofort siehst,
+ * ob /api/login wirklich in der Function landet.
+ */
+export async function onRequest(context) {
+  const { env, request } = context;
 
-function findPasswordInput() {
-  return (
-    $('input[name="password"]') ||
-    $('#password') ||
-    $('input[autocomplete="current-password"]') ||
-    $('input[type="password"]')
-  );
-}
-
-function findForm() {
-  // Nimm das erste Formular – oder das, in dem Username steckt
-  const u = findUsernameInput();
-  if (u && u.form) return u.form;
-  return document.querySelector("form");
-}
-
-function setError(msg) {
-  const box =
-    document.querySelector('[data-error]') ||
-    document.querySelector("#error") ||
-    document.querySelector(".error") ||
-    document.querySelector("#message");
-
-  if (box) {
-    box.textContent = msg;
-    box.style.display = msg ? "block" : "none";
-  } else if (msg) {
-    alert(msg);
+  // DEBUG: Wenn du diese JSON siehst, routed /api/login korrekt in die Function.
+  if (request.method === "GET") {
+    return json({ ok: true, route: "/api/login", hint: "POST to login", time: Date.now() });
   }
-}
 
-async function apiMe() {
-  const r = await fetch("/api/me", { credentials: "include" });
-  return r.json();
-}
+  if (request.method !== "POST") {
+    return bad(405, "Method Not Allowed");
+  }
 
-async function login(username, password) {
-  const r = await fetch("/api/login", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ username, password }),
+  const ip = getClientIp(request);
+  const rl = await rateLimit(env, `login:${ip}`, 10, 300);
+  if (!rl.allowed) {
+    return new Response(JSON.stringify({ ok: false, error: "Too many attempts" }), {
+      status: 429,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "retry-after": String(rl.retryAfter || 60),
+      },
+    });
+  }
+
+  const body = await readJson(request);
+  const username = (body.username || "").trim();
+  const password = (body.password || "").trim();
+
+  if (!username || !password) return bad(400, "username and password required");
+
+  const user = await env.DB.prepare(
+    "SELECT id, username, password_hash, salt, is_admin FROM users WHERE username = ?"
+  )
+    .bind(username)
+    .first();
+
+  if (!user) return bad(401, "Invalid username or password");
+
+  const ok = await verifyPassword(password, user.salt, user.password_hash, env.PASSWORD_PEPPER || "");
+  if (!ok) return bad(401, "Invalid username or password");
+
+  const sid = await createSession(env, user.id);
+
+  return new Response(JSON.stringify({ ok: true, username: user.username, is_admin: !!user.is_admin }), {
+    status: 200,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "set-cookie": setSessionCookie(sid),
+    },
   });
-
-  let data = null;
-  try { data = await r.json(); } catch (_) {}
-
-  if (!r.ok || !data?.ok) {
-    throw new Error(data?.error || `Login fehlgeschlagen (${r.status})`);
-  }
-  return data;
 }
-
-window.addEventListener("DOMContentLoaded", async () => {
-  // Wenn schon eingeloggt -> direkt /app
-  try {
-    const me = await apiMe();
-    if (me?.ok && me?.user) {
-      location.href = "/app";
-      return;
-    }
-  } catch (_) {}
-
-  const form = findForm();
-  const u = findUsernameInput();
-  const p = findPasswordInput();
-
-  if (!form || !u || !p) {
-    console.error("Login: Form/Inputs nicht gefunden", { form, u, p });
-    setError("Login-Formular kaputt: Inputs nicht gefunden.");
-    return;
-  }
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    setError("");
-
-    const username = (u.value || "").trim();
-    const password = (p.value || "").trim();
-
-    if (!username || !password) {
-      setError("Bitte Username + Passwort eingeben.");
-      return;
-    }
-
-    try {
-      await login(username, password);
-      location.href = "/app";
-    } catch (err) {
-      setError(err.message || "Login fehlgeschlagen.");
-    }
-  });
-});
