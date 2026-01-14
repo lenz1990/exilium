@@ -31,9 +31,7 @@ export async function onRequestPost(context) {
 
   const user = await env.DB.prepare(
     "SELECT id, username, password_hash, salt, is_admin FROM users WHERE username = ?"
-  )
-    .bind(username)
-    .first();
+  ).bind(username).first();
 
   if (!user) return bad(401, "Invalid username or password");
 
