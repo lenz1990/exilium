@@ -2,8 +2,6 @@
 /api/*   /api/:splat   200
 
 # --- Pages (alles nur REWRITE 200, KEINE 302/301) ---
-/        /index.html          200
-
 /login   /login.html          200
 /login/  /login.html          200
 
