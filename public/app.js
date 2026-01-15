@@ -1,291 +1,213 @@
-function $(id) { return document.getElementById(id); }
+(function () {
+  const $ = (id) => document.getElementById(id);
 
-const els = {
-  logoutBtn: $("logoutBtn"),
-  welcomeText: $("welcomeText"),
-  globalMsg: $("globalMsg"),
+  const logoutBtn = $("logoutBtn");
+  const welcomeLine = $("welcomeLine");
+  const appMsg = $("appMsg");
 
-  adminPanel: $("adminPanel"),
+  const adminPanel = $("adminPanel");
+  const createUserForm = $("createUserForm");
+  const newUsername = $("newUsername");
+  const newPassword = $("newPassword");
+  const newIsAdmin = $("newIsAdmin");
+  const refreshUsersBtn = $("refreshUsersBtn");
+  const usersTbody = $("usersTbody");
+  const adminMsg = $("adminMsg");
+  const adminHint = $("adminHint");
 
-  createUserForm: $("createUserForm"),
-  newUsername: $("newUsername"),
-  newPassword: $("newPassword"),
-  newIsAdmin: $("newIsAdmin"),
-  createMsg: $("createMsg"),
-
-  refreshUsersBtn: $("refreshUsersBtn"),
-  usersTbody: $("usersTbody"),
-  usersMsg: $("usersMsg"),
-
-  resetDialog: $("resetDialog"),
-  resetForm: $("resetForm"),
-  resetUserLabel: $("resetUserLabel"),
-  resetPassword: $("resetPassword"),
-  resetInvalidate: $("resetInvalidate"),
-  resetCancelBtn: $("resetCancelBtn"),
-  resetMsg: $("resetMsg"),
-};
-
-function showMsg(el, text, type = "error") {
-  if (!el) return;
-  el.classList.remove("hidden");
-  el.classList.remove("ok", "error");
-  el.classList.add(type === "ok" ? "ok" : "error");
-  el.textContent = text;
-}
-
-function hideMsg(el) {
-  if (!el) return;
-  el.classList.add("hidden");
-  el.textContent = "";
-  el.classList.remove("ok", "error");
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
-  }[c]));
-}
-
-async function api(path, opts = {}) {
-  const init = {
-    credentials: "include",
-    headers: { "content-type": "application/json; charset=utf-8", ...(opts.headers || {}) },
-    ...opts,
-  };
-  if (init.body && typeof init.body !== "string") init.body = JSON.stringify(init.body);
-  const res = await fetch(path, init);
-  let data = null;
-  const ct = res.headers.get("content-type") || "";
-  if (ct.includes("application/json")) data = await res.json().catch(() => null);
-  return { res, data };
-}
-
-async function loadMe() {
-  const { res, data } = await api("/api/me", { method: "GET", headers: {} });
-  if (!res.ok || !data?.ok || !data?.user) {
-    location.href = "/login";
-    return null;
+  function showMsg(el, text, ok = false) {
+    if (!el) return;
+    el.style.display = "block";
+    el.className = "msg " + (ok ? "msg-ok" : "msg-bad");
+    el.textContent = text;
   }
-  return data.user;
-}
-
-async function logout() {
-  await api("/api/logout", { method: "POST", body: {} }).catch(() => {});
-  location.href = "/login";
-}
-
-async function loadUsers() {
-  hideMsg(els.usersMsg);
-  els.usersTbody.innerHTML = "";
-
-  const { res, data } = await api("/api/users/list", { method: "GET", headers: {} });
-  if (!res.ok || !data?.ok) {
-    showMsg(els.usersMsg, data?.error || `User-Liste konnte nicht geladen werden (${res.status})`);
-    return [];
+  function clearMsg(el) {
+    if (!el) return;
+    el.style.display = "none";
+    el.textContent = "";
   }
 
-  const users = data.users || [];
-  renderUsers(users);
-  return users;
-}
-
-let currentUser = null;
-let selectedResetUser = null;
-
-function renderUsers(users) {
-  els.usersTbody.innerHTML = users.map((u) => {
-    const isAdmin = u.is_admin ? "ja" : "nein";
-    const safeName = escapeHtml(u.username);
-    const disableDelete = (currentUser && Number(u.id) === Number(currentUser.id)) || Number(u.id) === 1;
-
-    return `
-      <tr>
-        <td>${u.id}</td>
-        <td>${safeName}</td>
-        <td>${isAdmin}</td>
-        <td>
-          <button class="btn secondary" data-action="reset" data-id="${u.id}" data-username="${safeName}">
-            PW Reset
-          </button>
-          <button class="btn danger" data-action="delete" data-id="${u.id}" ${disableDelete ? "disabled" : ""}>
-            Löschen
-          </button>
-        </td>
-      </tr>
-    `;
-  }).join("");
-
-  // Delegation
-  els.usersTbody.querySelectorAll("button[data-action]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const action = btn.getAttribute("data-action");
-      const id = Number(btn.getAttribute("data-id"));
-      const username = btn.getAttribute("data-username");
-
-      if (action === "delete") {
-        await deleteUser(id);
-      } else if (action === "reset") {
-        openResetDialog({ id, username });
-      }
-    });
-  });
-}
-
-async function createUser(username, password, isAdmin) {
-  hideMsg(els.createMsg);
-
-  const { res, data } = await api("/api/users/create", {
-    method: "POST",
-    body: { username, password, is_admin: !!isAdmin },
-  });
-
-  if (!res.ok || !data?.ok) {
-    showMsg(els.createMsg, data?.error || `User konnte nicht erstellt werden (${res.status})`);
-    return false;
-  }
-
-  showMsg(els.createMsg, `User "${data.user?.username || username}" erstellt.`, "ok");
-  els.newUsername.value = "";
-  els.newPassword.value = "";
-  els.newIsAdmin.checked = false;
-
-  await loadUsers();
-  return true;
-}
-
-async function deleteUser(id) {
-  hideMsg(els.usersMsg);
-
-  const sure = confirm(`User ID ${id} wirklich löschen?`);
-  if (!sure) return;
-
-  const { res, data } = await api("/api/users/delete", {
-    method: "POST",
-    body: { id },
-  });
-
-  if (!res.ok || !data?.ok) {
-    showMsg(els.usersMsg, data?.error || `Löschen fehlgeschlagen (${res.status})`);
-    return;
-  }
-
-  showMsg(els.usersMsg, `User gelöscht.`, "ok");
-  await loadUsers();
-}
-
-/* ===== Passwort Reset ===== */
-
-function openResetDialog(u) {
-  selectedResetUser = u;
-  hideMsg(els.resetMsg);
-  els.resetPassword.value = "";
-  els.resetInvalidate.checked = true;
-
-  els.resetUserLabel.textContent = `User: ${u.username} (ID ${u.id})`;
-
-  if (typeof els.resetDialog.showModal === "function") {
-    els.resetDialog.showModal();
-  } else {
-    // fallback: falls dialog nicht unterstützt (sollte bei dir aber gehen)
-    alert("Dein Browser unterstützt <dialog> nicht.");
-  }
-}
-
-function closeResetDialog() {
-  selectedResetUser = null;
-  hideMsg(els.resetMsg);
-  if (els.resetDialog.open) els.resetDialog.close();
-}
-
-async function resetPasswordForUser(id, newPassword, invalidateSessions) {
-  hideMsg(els.resetMsg);
-
-  const { res, data } = await api("/api/users/reset", {
-    method: "POST",
-    body: {
-      id,
-      new_password: newPassword,
-      invalidate_sessions: !!invalidateSessions,
-    },
-  });
-
-  if (!res.ok || !data?.ok) {
-    showMsg(els.resetMsg, data?.error || `Reset fehlgeschlagen (${res.status})`);
-    return false;
-  }
-
-  showMsg(
-    els.resetMsg,
-    `Passwort gesetzt${data.sessions_invalidated ? " + Sessions gelöscht" : ""}.`,
-    "ok"
-  );
-
-  // Liste updaten (nicht zwingend, aber sinnvoll)
-  await loadUsers();
-
-  // kurz anzeigen, dann schließen
-  setTimeout(closeResetDialog, 600);
-  return true;
-}
-
-/* ===== init ===== */
-
-async function init() {
-  currentUser = await loadMe();
-  if (!currentUser) return;
-
-  els.welcomeText.textContent = `Eingeloggt als ${currentUser.username}${currentUser.is_admin ? " (Admin)" : ""}`;
-
-  // logout
-  els.logoutBtn.addEventListener("click", logout);
-
-  // admin panel anzeigen?
-  if (currentUser.is_admin) {
-    els.adminPanel.classList.remove("hidden");
-
-    // create user
-    els.createUserForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const u = els.newUsername.value.trim();
-      const p = els.newPassword.value.trim();
-      const a = els.newIsAdmin.checked;
-
-      if (!u || !p) {
-        showMsg(els.createMsg, "Username und Passwort sind Pflichtfelder.");
-        return;
-      }
-      if (p.length < 10) {
-        showMsg(els.createMsg, "Passwort muss mindestens 10 Zeichen haben.");
-        return;
-      }
-
-      await createUser(u, p, a);
+  async function api(path, init = {}) {
+    const res = await fetch(path, {
+      credentials: "include",
+      ...init,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        ...(init.headers || {}),
+      },
     });
 
-    // refresh list
-    els.refreshUsersBtn.addEventListener("click", loadUsers);
+    let data = null;
+    try {
+      data = await res.json();
+    } catch (_) {}
 
-    // reset dialog buttons
-    els.resetCancelBtn.addEventListener("click", closeResetDialog);
-    els.resetForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      if (!selectedResetUser) return;
+    return { res, data };
+  }
 
-      const p = els.resetPassword.value.trim();
-      if (!p || p.length < 10) {
-        showMsg(els.resetMsg, "Passwort muss mindestens 10 Zeichen haben.");
-        return;
+  function renderUsers(users, myId) {
+    if (!usersTbody) return;
+    usersTbody.innerHTML = "";
+
+    for (const u of users) {
+      const tr = document.createElement("tr");
+
+      const tdId = document.createElement("td");
+      tdId.textContent = String(u.id);
+
+      const tdName = document.createElement("td");
+      tdName.textContent = u.username;
+
+      const tdAdmin = document.createElement("td");
+      tdAdmin.textContent = u.is_admin ? "ja" : "nein";
+
+      const tdAction = document.createElement("td");
+
+      const btn = document.createElement("button");
+      btn.className = "btn btn-ghost";
+      btn.textContent = "Löschen";
+
+      // Eigener Admin-User (id 1) schützen – falls du das so willst
+      const protectedSelf = (u.id === myId);
+      const protectedId1 = (u.id === 1);
+
+      if (protectedSelf || protectedId1) {
+        btn.disabled = true;
+        btn.title = "Dieser Account ist geschützt";
+      } else {
+        btn.addEventListener("click", async () => {
+          clearMsg(adminMsg);
+
+          const { res, data } = await api("/api/users/delete", {
+            method: "POST",
+            body: JSON.stringify({ id: u.id }),
+          });
+
+          if (!res.ok || !data?.ok) {
+            showMsg(adminMsg, `Löschen fehlgeschlagen (${res.status}): ${data?.error || "Unknown error"}`, false);
+            return;
+          }
+
+          showMsg(adminMsg, `User "${u.username}" gelöscht.`, true);
+          await loadUsers(myId);
+        });
       }
 
-      await resetPasswordForUser(selectedResetUser.id, p, els.resetInvalidate.checked);
-    });
+      tdAction.appendChild(btn);
 
-    await loadUsers();
+      tr.appendChild(tdId);
+      tr.appendChild(tdName);
+      tr.appendChild(tdAdmin);
+      tr.appendChild(tdAction);
+
+      usersTbody.appendChild(tr);
+    }
   }
-}
 
-init().catch((err) => {
-  console.error(err);
-  showMsg(els.globalMsg, "Unerwarteter Fehler im Dashboard. Siehe Console.");
-});
+  async function loadUsers(myId) {
+    clearMsg(adminMsg);
+    if (adminHint) adminHint.textContent = "";
+
+    const { res, data } = await api("/api/users/list", { method: "GET" });
+
+    if (!res.ok || !data?.ok) {
+      showMsg(adminMsg, `User-Liste laden fehlgeschlagen (${res.status}): ${data?.error || "Unknown error"}`, false);
+      return;
+    }
+
+    const users = Array.isArray(data.users) ? data.users : [];
+    renderUsers(users, myId);
+
+    if (adminHint) {
+      adminHint.textContent = "Hinweis: Du kannst deinen eigenen Account nicht löschen (und ID 1 ist geschützt).";
+    }
+  }
+
+  async function boot() {
+    clearMsg(appMsg);
+    clearMsg(adminMsg);
+
+    // 1) Session prüfen
+    const { res, data } = await api("/api/me", { method: "GET" });
+
+    if (!res.ok || !data?.ok || !data.user) {
+      // nicht eingeloggt -> login
+      window.location.href = "/login";
+      return;
+    }
+
+    const me = data.user;
+    if (welcomeLine) {
+      welcomeLine.textContent = `Eingeloggt als ${me.username}${me.is_admin ? " (Admin)" : ""}`;
+    }
+
+    // 2) Logout
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", async () => {
+        await api("/api/logout", { method: "POST" });
+        window.location.href = "/login";
+      });
+    }
+
+    // 3) Admin Panel
+    if (me.is_admin && adminPanel) {
+      adminPanel.style.display = "block";
+
+      if (refreshUsersBtn) {
+        refreshUsersBtn.addEventListener("click", async () => {
+          await loadUsers(me.id);
+        });
+      }
+
+      if (createUserForm) {
+        createUserForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          clearMsg(adminMsg);
+
+          const username = (newUsername?.value || "").trim();
+          const password = (newPassword?.value || "").trim();
+          const is_admin = !!newIsAdmin?.checked;
+
+          if (!username || !password) {
+            showMsg(adminMsg, "Username und Passwort sind Pflicht.", false);
+            return;
+          }
+          if (password.length < 10) {
+            showMsg(adminMsg, "Passwort muss mindestens 10 Zeichen haben.", false);
+            return;
+          }
+
+          const { res, data } = await api("/api/users/create", {
+            method: "POST",
+            body: JSON.stringify({ username, password, is_admin }),
+          });
+
+          if (!res.ok || !data?.ok) {
+            showMsg(adminMsg, `User erstellen fehlgeschlagen (${res.status}): ${data?.error || "Unknown error"}`, false);
+            return;
+          }
+
+          showMsg(adminMsg, `User "${username}" erstellt.`, true);
+
+          if (newUsername) newUsername.value = "";
+          if (newPassword) newPassword.value = "";
+          if (newIsAdmin) newIsAdmin.checked = false;
+
+          await loadUsers(me.id);
+        });
+      }
+
+      await loadUsers(me.id);
+    } else {
+      // kein Admin -> admin panel bleibt aus
+      if (adminPanel) adminPanel.style.display = "none";
+      showMsg(appMsg, "Du bist eingeloggt, aber kein Admin.", true);
+    }
+  }
+
+  // START
+  boot().catch((err) => {
+    console.error(err);
+    showMsg(appMsg, "Frontend-Fehler: " + (err?.message || String(err)), false);
+  });
+})();
