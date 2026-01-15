@@ -2,53 +2,79 @@
 <html lang="de">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Dashboard – Exilium</title>
-  <link rel="stylesheet" href="/styles.css?v=20260115" />
+  <link rel="stylesheet" href="/styles.css" />
 </head>
+
 <body>
-  <main class="page">
-    <div class="card card-wide">
-      <div class="topbar">
-        <div class="brand">
-          <div class="brand-title">EXILIUM</div>
-          <div class="brand-badge">Dashboard</div>
-        </div>
-
-        <button id="logout" class="btn btn-danger" type="button">Logout</button>
-      </div>
-
-      <div class="grid">
-        <section class="panel">
-          <h2>Willkommen</h2>
-          <p id="who">Lade…</p>
-        </section>
-
-        <section id="adminBox" class="panel" style="display:none">
-          <h2>Admin: User verwalten</h2>
-
-          <form id="createUserForm" class="form">
-            <label class="label" for="newUser">Neuer Username</label>
-            <input id="newUser" class="input" autocomplete="username" />
-
-            <label class="label" for="newPass">Neues Passwort (min. 10 Zeichen)</label>
-            <input id="newPass" class="input" type="password" minlength="10" autocomplete="new-password" />
-
-            <button class="btn" type="submit">User erstellen</button>
-          </form>
-
-          <div id="adminMsg" class="msg"></div>
-        </section>
-      </div>
-
-      <div class="footerlinks">
-        <a href="/login">Login</a>
-        <span>·</span>
-        <a href="/setup">Setup</a>
-      </div>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-title">EXILIUM</div>
+      <div class="brand-pill">Dashboard</div>
     </div>
+
+    <button id="logout" class="btn danger">Logout</button>
+  </header>
+
+  <main class="page">
+    <section class="card">
+      <h1>Willkommen</h1>
+      <p id="who" class="muted">Lade…</p>
+      <p class="muted" style="margin-top:10px;">
+        Status: <a href="/api/me" target="_blank" rel="noreferrer">/api/me</a>
+      </p>
+    </section>
+
+    <!-- Admin Bereich -->
+    <section id="adminBox" class="card" style="display:none;">
+      <h2>Admin: User verwalten</h2>
+
+      <div id="adminMsg" class="msg" style="display:none;"></div>
+
+      <form id="createUserForm" class="form">
+        <label class="label">Neuer Username</label>
+        <input id="newUser" class="input" autocomplete="off" />
+
+        <label class="label">Neues Passwort (min. 10 Zeichen)</label>
+        <input id="newPass" class="input" type="password" autocomplete="new-password" />
+
+        <label class="checkbox">
+          <input id="newIsAdmin" type="checkbox" />
+          Als Admin anlegen
+        </label>
+
+        <button class="btn" type="submit">User erstellen</button>
+      </form>
+
+      <div class="spacer"></div>
+
+      <div class="row">
+        <h3 style="margin:0;">User-Liste</h3>
+        <button id="refreshUsersBtn" class="btn small" type="button">Aktualisieren</button>
+      </div>
+
+      <div class="tableWrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width:70px;">ID</th>
+              <th>Username</th>
+              <th style="width:90px;">Admin</th>
+              <th style="width:120px;">Aktion</th>
+            </tr>
+          </thead>
+          <tbody id="usersTbody"></tbody>
+        </table>
+      </div>
+
+      <p class="muted" style="margin-top:10px;">
+        Hinweis: Du kannst deinen eigenen Account nicht löschen (ID 1 ist geschützt).
+      </p>
+    </section>
   </main>
 
-  <script src="/app.js?v=20260115" defer></script>
+  <!-- WICHTIG: defer, damit die DOM-IDs sicher existieren -->
+  <script defer src="/app.js"></script>
 </body>
 </html>
