@@ -8,19 +8,20 @@ async function requireAdmin(context) {
 }
 
 export async function onRequestPost(context) {
-  const { env, request } = context;
-  const admin = await requireAdmin(context);
-  if (admin.response) return admin.response;
+  const gate = await requireAdmin(context);
+  if (gate.response) return gate.response;
 
-  const body = await readJson(request);
-  const user_id = Number(body.user_id);
-  if (!user_id) return bad(400, "user_id required");
+  const body = await readJson(context.request);
+  const id = Number(body.id);
 
-  // nicht selbst löschen
-  if (user_id === admin.user.id) return bad(400, "cannot delete yourself");
+  if (!Number.isFinite(id) || id <= 0) return bad(400, "valid id required");
+  if (id === gate.user.id) return bad(400, "cannot delete your own account");
 
-  await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user_id).run();
-  await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(user_id).run();
+  await context.env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id).run();
+  const del = await context.env.DB.prepare("DELETE FROM users WHERE id = ?").bind(id).run();
+
+  const changed = (del?.meta?.changes ?? 0);
+  if (changed === 0) return bad(404, "user not found");
 
   return json({ ok: true });
 }
