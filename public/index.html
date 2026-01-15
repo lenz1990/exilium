@@ -2,22 +2,109 @@
 <html lang="de">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Exilium</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Exilium – Login</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <main class="card">
-    <h1>EXILIUM</h1>
-    <p>Starter-Website mit Username/Passwort Login + D1/SQLite.</p>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-title">EXILIUM</div>
+        <div class="brand-pill">Login</div>
+      </div>
+    </header>
 
-    <div class="row">
-      <a class="btn" href="/login">Login</a>
-      <a class="btn secondary" href="/setup">Erst-Setup</a>
-      <a class="btn ghost" href="/app">Dashboard</a>
-    </div>
+    <main class="grid">
+      <section class="card">
+        <h2>Login</h2>
 
-    <p class="muted">Tipp: /api/me zeigt dir den aktuellen Login-Status (JSON).</p>
-  </main>
+        <form id="loginForm" class="form">
+          <label class="label">
+            Username
+            <input id="username" class="input" autocomplete="username" />
+          </label>
+
+          <label class="label">
+            Passwort
+            <input id="password" class="input" type="password" autocomplete="current-password" />
+          </label>
+
+          <button class="btn" type="submit">Einloggen</button>
+        </form>
+
+        <div id="msg" class="msg" style="display:none;"></div>
+
+        <div class="links">
+          <a href="/" class="link">Start</a>
+          <a href="/setup" class="link">Setup</a>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const form = $("loginForm");
+    const msg = $("msg");
+
+    function show(text, ok=false) {
+      msg.style.display = "block";
+      msg.className = "msg " + (ok ? "msg-ok" : "msg-bad");
+      msg.textContent = text;
+    }
+    function clear() {
+      msg.style.display = "none";
+      msg.textContent = "";
+    }
+
+    async function api(path, init = {}) {
+      const res = await fetch(path, {
+        credentials: "include",
+        ...init,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          ...(init.headers || {}),
+        },
+      });
+      let data = null;
+      try { data = await res.json(); } catch(e) {}
+      return { res, data };
+    }
+
+    (async () => {
+      // Wenn bereits eingeloggt -> /app
+      const { res, data } = await api("/api/me", { method: "GET" });
+      if (res.ok && data?.ok && data.user) {
+        window.location.href = "/app";
+      }
+    })();
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      clear();
+
+      const username = ($("username").value || "").trim();
+      const password = ($("password").value || "").trim();
+
+      if (!username || !password) {
+        show("Bitte Username und Passwort eingeben.");
+        return;
+      }
+
+      const { res, data } = await api("/api/login", {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!res.ok || !data?.ok) {
+        show(`Login fehlgeschlagen (${res.status}): ${data?.error || "Unknown error"}`);
+        return;
+      }
+
+      show("Login erfolgreich.", true);
+      window.location.href = "/app";
+    });
+  </script>
 </body>
 </html>
