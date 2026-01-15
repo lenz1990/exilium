@@ -1,23 +1,23 @@
 import { json, bad, requireUser } from "../../_shared.js";
 
-export async function onRequestDelete(context) {
-  const { env, params } = context;
+async function requireAdmin(context) {
+  const { user, response } = await requireUser(context);
+  if (response) return { user: null, response };
+  if (!user.is_admin) return { user: null, response: bad(403, "Admin only") };
+  return { user, response: null };
+}
 
-  const auth = await requireUser(context);
-  if (auth.response) return auth.response;
-  if (!auth.user.is_admin) return bad(403, "Admin only");
+export async function onRequestGet(context) {
+  const gate = await requireAdmin(context);
+  if (gate.response) return gate.response;
 
-  const userId = Number(String(params.id || "").trim());
-  if (!Number.isInteger(userId) || userId <= 0) return bad(400, "Invalid user id");
+  const rows = await context.env.DB
+    .prepare("SELECT id, username, is_admin FROM users ORDER BY id ASC")
+    .all();
 
-  if (userId === auth.user.id) return bad(400, "You cannot delete your own account");
-  if (userId === 1) return bad(400, "User #1 cannot be deleted");
-
-  const exists = await env.DB.prepare("SELECT id FROM users WHERE id = ?").bind(userId).first();
-  if (!exists) return bad(404, "User not found");
-
-  await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(userId).run();
-  await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(userId).run();
-
-  return json({ ok: true });
+  return json({ ok: true, users: (rows.results || []).map(u => ({
+    id: u.id,
+    username: u.username,
+    is_admin: !!u.is_admin,
+  }))});
 }
