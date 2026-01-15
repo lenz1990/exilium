@@ -1,4 +1,4 @@
-import { json, bad, readJson, makePasswordRecord, requireUser } from "../../_shared.js";
+import { json, bad, readJson, requireUser, makePasswordRecord } from "../../_shared.js";
 
 async function requireAdmin(context) {
   const { user, response } = await requireUser(context);
@@ -8,27 +8,29 @@ async function requireAdmin(context) {
 }
 
 export async function onRequestPost(context) {
-  const { env, request } = context;
-  const admin = await requireAdmin(context);
-  if (admin.response) return admin.response;
+  const gate = await requireAdmin(context);
+  if (gate.response) return gate.response;
 
-  const body = await readJson(request);
-  const user_id = Number(body.user_id);
-  const password = (body.password || "").trim();
+  const body = await readJson(context.request);
+  const id = Number(body.id);
+  const password = String(body.password || "");
 
-  if (!user_id) return bad(400, "user_id required");
-  if (!password || password.length < 10) return bad(400, "password must be at least 10 chars");
+  if (!Number.isFinite(id) || id <= 0) return bad(400, "valid id required");
+  if (!password) return bad(400, "password required");
+  if (password.length < 10) return bad(400, "password must be at least 10 chars");
 
-  const rec = await makePasswordRecord(password, env.PASSWORD_PEPPER || "");
+  const rec = await makePasswordRecord(password, context.env.PASSWORD_PEPPER || "");
 
-  await env.DB.prepare(
-    "UPDATE users SET password_hash = ?, salt = ? WHERE id = ?"
-  )
-    .bind(rec.hash_b64, rec.salt_b64, user_id)
+  const upd = await context.env.DB
+    .prepare("UPDATE users SET password_hash = ?, salt = ? WHERE id = ?")
+    .bind(rec.hash_b64, rec.salt_b64, id)
     .run();
 
-  // Sicherheitsbonus: alle Sessions dieses Users killen
-  await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user_id).run();
+  const changed = (upd?.meta?.changes ?? 0);
+  if (changed === 0) return bad(404, "user not found");
+
+  // optional: sessions vom User killen, damit neues Passwort direkt gilt
+  await context.env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id).run();
 
   return json({ ok: true });
 }
