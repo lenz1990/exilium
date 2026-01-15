@@ -1,4 +1,4 @@
-import { json, bad, readJson, makePasswordRecord, requireUser } from "../../_shared.js";
+import { json, bad, readJson, requireUser, makePasswordRecord } from "../../_shared.js";
 
 async function requireAdmin(context) {
   const { user, response } = await requireUser(context);
@@ -7,31 +7,41 @@ async function requireAdmin(context) {
   return { user, response: null };
 }
 
-export async function onRequestPost(context) {
-  const { env, request } = context;
-  const admin = await requireAdmin(context);
-  if (admin.response) return admin.response;
+function normUsername(raw) {
+  return String(raw || "").trim();
+}
 
-  const body = await readJson(request);
-  const username = (body.username || "").trim();
-  const password = (body.password || "").trim();
+export async function onRequestPost(context) {
+  const gate = await requireAdmin(context);
+  if (gate.response) return gate.response;
+
+  const body = await readJson(context.request);
+  const username = normUsername(body.username);
+  const password = String(body.password || "");
   const is_admin = !!body.is_admin;
 
-  if (!username || username.length < 2) return bad(400, "username too short");
-  if (!password || password.length < 10) return bad(400, "password must be at least 10 chars");
+  if (!username) return bad(400, "username required");
+  if (username.length < 3 || username.length > 32) return bad(400, "username must be 3-32 chars");
+  if (/\s/.test(username)) return bad(400, "username must not contain spaces");
 
-  const exists = await env.DB.prepare("SELECT id FROM users WHERE username = ?")
+  if (!password) return bad(400, "password required");
+  if (password.length < 10) return bad(400, "password must be at least 10 chars");
+
+  const existing = await context.env.DB
+    .prepare("SELECT id FROM users WHERE username = ?")
     .bind(username)
     .first();
-  if (exists) return bad(409, "username already exists");
+  if (existing) return bad(409, "username already exists");
 
-  const rec = await makePasswordRecord(password, env.PASSWORD_PEPPER || "");
+  const rec = await makePasswordRecord(password, context.env.PASSWORD_PEPPER || "");
 
-  const res = await env.DB.prepare(
+  const ins = await context.env.DB.prepare(
     "INSERT INTO users (username, password_hash, salt, is_admin) VALUES (?, ?, ?, ?)"
   )
     .bind(username, rec.hash_b64, rec.salt_b64, is_admin ? 1 : 0)
     .run();
 
-  return json({ ok: true, id: res.meta?.last_row_id ?? null, username, is_admin });
+  const newId = ins?.meta?.last_row_id ?? null;
+
+  return json({ ok: true, id: newId, username, is_admin });
 }
