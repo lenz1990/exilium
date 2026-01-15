@@ -8,19 +8,23 @@ async function requireAdmin(context) {
 }
 
 export async function onRequestPost(context) {
-  const { env, request } = context;
-  const admin = await requireAdmin(context);
-  if (admin.response) return admin.response;
+  const gate = await requireAdmin(context);
+  if (gate.response) return gate.response;
 
-  const body = await readJson(request);
-  const user_id = Number(body.user_id);
+  const body = await readJson(context.request);
+  const id = Number(body.id);
   const is_admin = !!body.is_admin;
 
-  if (!user_id) return bad(400, "user_id required");
+  if (!Number.isFinite(id) || id <= 0) return bad(400, "valid id required");
+  if (id === gate.user.id) return bad(400, "cannot change your own admin flag here");
 
-  await env.DB.prepare("UPDATE users SET is_admin = ? WHERE id = ?")
-    .bind(is_admin ? 1 : 0, user_id)
+  const upd = await context.env.DB
+    .prepare("UPDATE users SET is_admin = ? WHERE id = ?")
+    .bind(is_admin ? 1 : 0, id)
     .run();
+
+  const changed = (upd?.meta?.changes ?? 0);
+  if (changed === 0) return bad(404, "user not found");
 
   return json({ ok: true });
 }
