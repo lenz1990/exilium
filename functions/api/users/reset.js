@@ -1,33 +1,36 @@
-import { json, bad, readJson, requireUser, makePasswordRecord } from "../_shared.js";
+import { json, bad, readJson, requireUser, makePasswordRecord } from "../../_shared.js";
 
-export async function onRequestPost(context) {
-  const { env, request } = context;
-
+async function requireAdmin(context) {
   const { user, response } = await requireUser(context);
-  if (response) return response;
-  if (!user.is_admin) return bad(403, "Admin only");
+  if (response) return { user: null, response };
+  if (!user.is_admin) return { user: null, response: bad(403, "Admin only") };
+  return { user, response: null };
+}
 
-  const body = await readJson(request);
+// reset = "set-password + delete sessions"
+export async function onRequestPost(context) {
+  const gate = await requireAdmin(context);
+  if (gate.response) return gate.response;
 
-  const userId = Number(body.userId ?? body.id ?? body.user_id ?? 0);
-  const newPassword = String(body.newPassword ?? body.password ?? body.new_password ?? "").trim();
-  const invalidate = body.invalidateSessions ?? body.invalidate_sessions ?? body.invalidate ?? true;
+  const body = await readJson(context.request);
+  const id = Number(body.id);
+  const password = String(body.password || "");
 
-  if (!userId || !Number.isFinite(userId)) return bad(400, "userId required");
-  if (newPassword.length < 10) return bad(400, "Password must be at least 10 characters");
+  if (!Number.isFinite(id) || id <= 0) return bad(400, "valid id required");
+  if (!password) return bad(400, "password required");
+  if (password.length < 10) return bad(400, "password must be at least 10 chars");
 
-  const target = await env.DB.prepare("SELECT id FROM users WHERE id = ?").bind(userId).first();
-  if (!target) return bad(404, "User not found");
+  const rec = await makePasswordRecord(password, context.env.PASSWORD_PEPPER || "");
 
-  const rec = await makePasswordRecord(newPassword, env.PASSWORD_PEPPER || "");
-
-  await env.DB.prepare("UPDATE users SET password_hash = ?, salt = ? WHERE id = ?")
-    .bind(rec.hash_b64, rec.salt_b64, userId)
+  const upd = await context.env.DB
+    .prepare("UPDATE users SET password_hash = ?, salt = ? WHERE id = ?")
+    .bind(rec.hash_b64, rec.salt_b64, id)
     .run();
 
-  if (invalidate) {
-    await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(userId).run();
-  }
+  const changed = (upd?.meta?.changes ?? 0);
+  if (changed === 0) return bad(404, "user not found");
 
-  return json({ ok: true, userId, invalidated: !!invalidate });
+  await context.env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id).run();
+
+  return json({ ok: true });
 }
