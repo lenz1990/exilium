@@ -2,84 +2,53 @@
 <html lang="de">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Exilium – Dashboard</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard – Exilium</title>
+  <link rel="stylesheet" href="/styles.css?v=20260115" />
 </head>
 <body>
-  <div class="page">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-title">EXILIUM</div>
-        <div class="brand-pill">Dashboard</div>
+  <main class="page">
+    <div class="card card-wide">
+      <div class="topbar">
+        <div class="brand">
+          <div class="brand-title">EXILIUM</div>
+          <div class="brand-badge">Dashboard</div>
+        </div>
+
+        <button id="logout" class="btn btn-danger" type="button">Logout</button>
       </div>
 
-      <button id="logoutBtn" class="btn btn-danger">Logout</button>
-    </header>
+      <div class="grid">
+        <section class="panel">
+          <h2>Willkommen</h2>
+          <p id="who">Lade…</p>
+        </section>
 
-    <main class="grid">
-      <section class="card">
-        <h2>Willkommen</h2>
-        <p class="muted" id="welcomeLine">Lade…</p>
+        <section id="adminBox" class="panel" style="display:none">
+          <h2>Admin: User verwalten</h2>
 
-        <div class="links">
-          <a href="/login" class="link">Login</a>
-          <a href="/setup" class="link">Setup</a>
-        </div>
+          <form id="createUserForm" class="form">
+            <label class="label" for="newUser">Neuer Username</label>
+            <input id="newUser" class="input" autocomplete="username" />
 
-        <div id="appMsg" class="msg" style="display:none;"></div>
-      </section>
+            <label class="label" for="newPass">Neues Passwort (min. 10 Zeichen)</label>
+            <input id="newPass" class="input" type="password" minlength="10" autocomplete="new-password" />
 
-      <section id="adminPanel" class="card" style="display:none;">
-        <h2>Admin: User verwalten</h2>
+            <button class="btn" type="submit">User erstellen</button>
+          </form>
 
-        <form id="createUserForm" class="form">
-          <label class="label">
-            Neuer Username
-            <input id="newUsername" class="input" autocomplete="off" />
-          </label>
+          <div id="adminMsg" class="msg"></div>
+        </section>
+      </div>
 
-          <label class="label">
-            Neues Passwort (min. 10 Zeichen)
-            <input id="newPassword" class="input" type="password" autocomplete="new-password" />
-          </label>
+      <div class="footerlinks">
+        <a href="/login">Login</a>
+        <span>·</span>
+        <a href="/setup">Setup</a>
+      </div>
+    </div>
+  </main>
 
-          <label class="label checkbox">
-            <input id="newIsAdmin" type="checkbox" />
-            Als Admin anlegen
-          </label>
-
-          <button class="btn" type="submit">User erstellen</button>
-        </form>
-
-        <div id="adminMsg" class="msg" style="display:none;"></div>
-
-        <div class="divider"></div>
-
-        <div class="row">
-          <h3 style="margin:0;">User-Liste</h3>
-          <button id="refreshUsersBtn" class="btn btn-ghost" type="button">Aktualisieren</button>
-        </div>
-
-        <div class="tableWrap">
-          <table class="table">
-            <thead>
-              <tr>
-                <th style="width:70px;">ID</th>
-                <th>Username</th>
-                <th style="width:90px;">Admin</th>
-                <th style="width:110px;">Aktion</th>
-              </tr>
-            </thead>
-            <tbody id="usersTbody"></tbody>
-          </table>
-        </div>
-
-        <p class="hint" id="adminHint"></p>
-      </section>
-    </main>
-  </div>
-
-  <script src="/app.js" defer></script>
+  <script src="/app.js?v=20260115" defer></script>
 </body>
 </html>
