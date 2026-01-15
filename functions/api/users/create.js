@@ -1,47 +1,82 @@
-import { json, bad, readJson, requireUser, makePasswordRecord } from "../../_shared.js";
+import { bad, readJson, requireUser, makePasswordRecord } from "../../_shared.js";
 
-async function requireAdmin(context) {
-  const { user, response } = await requireUser(context);
-  if (response) return { user: null, response };
-  if (!user.is_admin) return { user: null, response: bad(403, "Admin only") };
-  return { user, response: null };
-}
+async function resolveUser(context) {
+  const { env, request } = context;
 
-function normUsername(raw) {
-  return String(raw || "").trim();
+  // Try a few likely signatures (robust gegen Änderungen in _shared.js)
+  const attempts = [
+    () => requireUser(context),
+    () => requireUser(env, request),
+    () => requireUser(request, env),
+    () => requireUser(request),
+  ];
+
+  for (const fn of attempts) {
+    try {
+      const out = await fn();
+      if (out) return out;
+    } catch (_) {}
+  }
+  return null;
 }
 
 export async function onRequestPost(context) {
-  const gate = await requireAdmin(context);
-  if (gate.response) return gate.response;
+  const { env, request } = context;
 
-  const body = await readJson(context.request);
-  const username = normUsername(body.username);
-  const password = String(body.password || "");
-  const is_admin = !!body.is_admin;
+  // --- Auth / Admin check ---
+  const auth = await resolveUser(context);
+  if (auth instanceof Response) return auth;
 
-  if (!username) return bad(400, "username required");
-  if (username.length < 3 || username.length > 32) return bad(400, "username must be 3-32 chars");
-  if (/\s/.test(username)) return bad(400, "username must not contain spaces");
+  // Manche Implementationen geben { ok:true, user:{...} } zurück, andere direkt user
+  const me = auth?.user ?? auth;
+  if (!me?.id) return bad(401, "Not logged in");
+  if (!me?.is_admin) return bad(403, "Admin only");
 
-  if (!password) return bad(400, "password required");
-  if (password.length < 10) return bad(400, "password must be at least 10 chars");
+  // --- Input ---
+  const body = await readJson(request);
+  const username = String(body?.username || "").trim();
+  const password = String(body?.password || "").trim();
+  const is_admin = !!body?.is_admin; // darf fehlen → default false
 
-  const existing = await context.env.DB
-    .prepare("SELECT id FROM users WHERE username = ?")
+  if (!username || !password) return bad(400, "username and password required");
+  if (password.length < 10) return bad(400, "Password must be at least 10 characters");
+
+  // --- Uniqueness ---
+  const existing = await env.DB.prepare("SELECT id FROM users WHERE username = ?")
     .bind(username)
     .first();
-  if (existing) return bad(409, "username already exists");
+  if (existing) return bad(409, "Username already exists");
 
-  const rec = await makePasswordRecord(password, context.env.PASSWORD_PEPPER || "");
+  // --- Hash/Salt via shared helper (muss zur verifyPassword-Logik passen) ---
+  let rec = null;
+  try {
+    rec = await makePasswordRecord(password, env.PASSWORD_PEPPER || "");
+  } catch (e) {
+    return bad(500, "Password hashing failed");
+  }
+  if (!rec?.password_hash || !rec?.salt) return bad(500, "Password hashing failed");
 
-  const ins = await context.env.DB.prepare(
-    "INSERT INTO users (username, password_hash, salt, is_admin) VALUES (?, ?, ?, ?)"
-  )
-    .bind(username, rec.hash_b64, rec.salt_b64, is_admin ? 1 : 0)
-    .run();
+  // --- Insert ---
+  try {
+    const r = await env.DB.prepare(
+      "INSERT INTO users (username, password_hash, salt, is_admin) VALUES (?, ?, ?, ?)"
+    )
+      .bind(username, rec.password_hash, rec.salt, is_admin ? 1 : 0)
+      .run();
 
-  const newId = ins?.meta?.last_row_id ?? null;
+    const id = r?.meta?.last_row_id ?? null;
 
-  return json({ ok: true, id: newId, username, is_admin });
+    return new Response(JSON.stringify({ ok: true, id, username, is_admin }), {
+      headers: { "content-type": "application/json; charset=utf-8" },
+    });
+  } catch (e) {
+    const msg = String(e?.message || e);
+
+    // typische SQLite/D1 Fehler sauber als 409 statt 500
+    if (msg.toLowerCase().includes("unique") || msg.toLowerCase().includes("constraint")) {
+      return bad(409, "Username already exists");
+    }
+
+    return bad(500, `DB error: ${msg}`);
+  }
 }
